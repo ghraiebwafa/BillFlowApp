@@ -59,6 +59,7 @@ public class Startup
         services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
         services.AddScoped<IPaymentBillingService, PaymentBillingService>();
         services.AddScoped<IDashboardBillingService, DashboardBillingService>();
+        services.AddScoped<IReportsBillingService, ReportsBillingService>();
         services.AddScoped<SuperAdminSeeder>();
         services.AddHostedService<SuperAdminSeederHostedService>();
     }

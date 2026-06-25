@@ -18,6 +18,7 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IPaymentRepository, PaymentRepository>();
         services.AddScoped<IDashboardRepository, DashboardRepository>();
+        services.AddScoped<IReportsRepository, ReportsRepository>();
         services.AddScoped<IUserSessionRevocationService, UserSessionRevocationService>();
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
         return services;
