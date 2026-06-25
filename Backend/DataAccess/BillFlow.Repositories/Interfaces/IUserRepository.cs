@@ -30,4 +30,10 @@ public interface IUserRepository
     Task<User?> GetByIdAndRoleAsync(Guid id, UserRole role, CancellationToken cancellationToken = default);
 
     Task<bool> AnyInRoleAsync(UserRole role, CancellationToken cancellationToken = default);
+
+    Task<int> GetTokenVersionAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<int> IncrementTokenVersionAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<bool> HasBillingDataAsync(Guid userId, CancellationToken cancellationToken = default);
 }

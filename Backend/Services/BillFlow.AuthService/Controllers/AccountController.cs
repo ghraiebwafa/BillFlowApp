@@ -44,6 +44,7 @@ public class AccountController(IAccountService accountService) : ControllerBase
         ToActionResult(accountService.ResetPasswordAsync(request, cancellationToken));
 
     [Authorize]
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpGet("profile")]
     [ProducesResponseType(typeof(UserProfileResponse), StatusCodes.Status200OK)]
     public Task<IActionResult> Profile(CancellationToken cancellationToken) =>
@@ -68,12 +69,14 @@ public class AccountController(IAccountService accountService) : ControllerBase
         ToActionResult(accountService.ChangePasswordAsync(request, cancellationToken));
 
     [Authorize]
+    [EnableRateLimiting(RateLimitPolicies.AuthStrict)]
     [HttpDelete("deactivate")]
     [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
     public Task<IActionResult> Deactivate(CancellationToken cancellationToken) =>
         ToActionResult(accountService.DeactivateAsync(cancellationToken));
 
     [Authorize]
+    [EnableRateLimiting(RateLimitPolicies.AuthStrict)]
     [HttpDelete("delete")]
     [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
     public Task<IActionResult> Delete(CancellationToken cancellationToken) =>

@@ -2,6 +2,7 @@ using BillFlow.Database.DbContexts;
 using BillFlow.Models.Entities;
 using BillFlow.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Data;
 
 namespace BillFlow.Repositories.RefreshTokens;
 
@@ -57,5 +58,51 @@ public sealed class RefreshTokenRepository(BillFlowDbContext db) : IRefreshToken
             token.RevokedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<RefreshTokenRotationResult?> RotateActiveTokenAsync(
+        string tokenHash,
+        RefreshToken replacement,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable,
+            cancellationToken);
+
+        var stored = await db.RefreshTokens
+            .Include(r => r.User)
+            .FirstOrDefaultAsync(
+                r => r.Token == tokenHash && r.RevokedAt == null && r.ExpiresAt > DateTime.UtcNow,
+                cancellationToken);
+
+        if (stored?.User is null || !stored.User.IsActive)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return null;
+        }
+
+        stored.RevokedAt = DateTime.UtcNow;
+        stored.ReplacedByToken = replacement.Token;
+
+        replacement.Id = Guid.NewGuid();
+        replacement.UserId = stored.UserId;
+        replacement.CreatedAt = DateTime.UtcNow;
+        db.RefreshTokens.Add(replacement);
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return new RefreshTokenRotationResult
+        {
+            User = stored.User,
+            OldTokenHash = tokenHash,
+        };
+    }
+
+    public async Task<int> DeleteExpiredAsync(DateTime utcNow, CancellationToken cancellationToken = default)
+    {
+        return await db.RefreshTokens
+            .Where(r => r.ExpiresAt < utcNow)
+            .ExecuteDeleteAsync(cancellationToken);
     }
 }

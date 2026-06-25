@@ -39,7 +39,7 @@ public sealed class AccountService(
             PhoneNumber = request.PhoneNumber?.Trim(),
             Role = UserRole.Visitor,
             IsActive = true,
-            IsEmailConfirmed = true,
+            IsEmailConfirmed = environment.IsDevelopment(),
         };
 
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
@@ -68,6 +68,13 @@ public sealed class AccountService(
             return AccountResult<AuthResponse>.Fail(
                 AuthConstants.GenericAuthFailureMessage,
                 StatusCodes.Status401Unauthorized);
+        }
+
+        if (!environment.IsDevelopment() && !user.IsEmailConfirmed)
+        {
+            return AccountResult<AuthResponse>.Fail(
+                AuthConstants.EmailNotVerifiedMessage,
+                StatusCodes.Status403Forbidden);
         }
 
         await userRepository.UpdateLastLoginAsync(user.Id, cancellationToken);
@@ -100,35 +107,32 @@ public sealed class AccountService(
                 StatusCodes.Status401Unauthorized);
         }
 
-        var stored = await refreshTokenRepository.GetActiveByTokenHashAsync(tokenHash, cancellationToken);
-        if (stored?.User is null || !stored.User.IsActive)
+        var newRefreshPlain = jwtTokenService.GenerateRefreshToken();
+        var newRefreshHash = TokenHasher.Hash(newRefreshPlain);
+
+        var rotation = await refreshTokenRepository.RotateActiveTokenAsync(
+            tokenHash,
+            new RefreshToken
+            {
+                Token = newRefreshHash,
+                ExpiresAt = DateTime.UtcNow.AddDays(jwtOptions.RefreshTokenDays),
+            },
+            cancellationToken);
+
+        if (rotation is null)
         {
             return AccountResult<AuthResponse>.Fail(
                 AuthConstants.GenericAuthFailureMessage,
                 StatusCodes.Status401Unauthorized);
         }
 
-        var newRefreshPlain = jwtTokenService.GenerateRefreshToken();
-        var newRefreshHash = TokenHasher.Hash(newRefreshPlain);
-
-        await refreshTokenRepository.RevokeAsync(stored.Id, newRefreshHash, cancellationToken);
-        await refreshTokenRepository.CreateAsync(
-            new RefreshToken
-            {
-                Id = Guid.NewGuid(),
-                UserId = stored.UserId,
-                Token = newRefreshHash,
-                ExpiresAt = DateTime.UtcNow.AddDays(jwtOptions.RefreshTokenDays),
-            },
-            cancellationToken);
-
         await cache.SetAsync(
-            CacheKeys.RevokedRefreshToken(tokenHash),
+            CacheKeys.RevokedRefreshToken(rotation.OldTokenHash),
             true,
             TimeSpan.FromDays(jwtOptions.RefreshTokenDays),
             cancellationToken);
 
-        var response = await BuildAuthResponseAsync(stored.User, newRefreshPlain, cancellationToken);
+        var response = await BuildAuthResponseAsync(rotation.User, newRefreshPlain, cancellationToken);
         return AccountResult<AuthResponse>.Ok(response);
     }
 
@@ -284,6 +288,14 @@ public sealed class AccountService(
         }
 
         await sessionRevocation.RevokeAllSessionsAsync(userId.Value, cancellationToken);
+
+        if (await userRepository.HasBillingDataAsync(userId.Value, cancellationToken))
+        {
+            return AccountResult<MessageResponse>.Fail(
+                "This account has billing data. Deactivate the account instead of permanently deleting it.",
+                StatusCodes.Status409Conflict);
+        }
+
         await userRepository.HardDeleteAsync(userId.Value, cancellationToken);
 
         return AccountResult<MessageResponse>.Ok(new MessageResponse

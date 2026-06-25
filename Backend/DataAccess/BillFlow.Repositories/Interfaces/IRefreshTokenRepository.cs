@@ -17,4 +17,11 @@ public interface IRefreshTokenRepository
     Task RevokeAsync(Guid refreshTokenId, string? replacedByTokenHash = null, CancellationToken cancellationToken = default);
 
     Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<RefreshTokenRotationResult?> RotateActiveTokenAsync(
+        string tokenHash,
+        RefreshToken replacement,
+        CancellationToken cancellationToken = default);
+
+    Task<int> DeleteExpiredAsync(DateTime utcNow, CancellationToken cancellationToken = default);
 }

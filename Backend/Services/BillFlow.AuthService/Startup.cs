@@ -5,6 +5,7 @@ using BillFlow.Database.DbContexts;
 using BillFlow.Repositories;
 using BillFlow.Shared.Configuration;
 using BillFlow.Shared.Extensions;
+using BillFlow.Shared.Middleware;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -19,18 +20,23 @@ public class Startup
     {
         _ = configuration;
         _environment = environment;
-        Env.Load();
+        if (environment.IsDevelopment())
+            Env.Load();
     }
 
     public void ConfigureServices(IServiceCollection services)
     {
         var jwtOptions = JwtOptions.FromEnvironment();
         var redisOptions = RedisOptions.FromEnvironment();
+        TokenHasher.Configure(RefreshTokenPepperOptions.FromEnvironment());
 
+        services.AddExceptionHandler<GlobalExceptionHandler>();
+        services.AddProblemDetails();
         services.AddControllers();
         services.AddEndpointsApiExplorer();
         services.AddBillFlowRateLimiting();
         services.AddBillFlowCors(_environment);
+        CorsExtensions.ValidateBillFlowCors(_environment);
 
         if (_environment.IsDevelopment())
             services.AddBillFlowSwagger();
@@ -56,6 +62,7 @@ public class Startup
             db.Database.Migrate();
         }
 
+        app.UseExceptionHandler();
         app.UseBillFlowSecurityHeaders();
         app.UseBillFlowHstsWhenProduction(app.Environment);
 
