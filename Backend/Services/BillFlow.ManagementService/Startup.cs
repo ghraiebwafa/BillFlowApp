@@ -53,6 +53,7 @@ public class Startup
         services.AddScoped<IItemBillingService, ItemBillingService>();
         services.AddScoped<IInvoiceBillingService, InvoiceBillingService>();
         services.AddScoped<IPaymentBillingService, PaymentBillingService>();
+        services.AddScoped<IDashboardBillingService, DashboardBillingService>();
         services.AddScoped<SuperAdminSeeder>();
         services.AddHostedService<SuperAdminSeederHostedService>();
     }
