@@ -8,6 +8,7 @@ import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import { FormField } from "../../../shared/ui/FormField";
 import { FormTextArea } from "../../../shared/ui/FormTextArea";
+import { PageHeader } from "../../../shared/ui/PageHeader";
 import {
   defaultCompanySettingsForm,
   mapFormToRequest,
@@ -44,11 +45,14 @@ async function fetchCompanySettings(): Promise<CompanySettingsResponse | null> {
   }
 }
 
+type SettingsTab = "general" | "invoice" | "payment" | "email";
+
 export function CompanySettingsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [tab, setTab] = useState<SettingsTab>("general");
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["company-settings"],
@@ -100,11 +104,23 @@ export function CompanySettingsPage() {
   const isNew = data === null && !isLoading && !error;
 
   return (
-    <section className="space-y-4">
-      <div>
-        <h2 className="text-2xl font-semibold">{t("settings.title")}</h2>
-        <p className="text-secondary">{t("settings.subtitle")}</p>
-      </div>
+    <section className="app-screen space-y-4">
+      <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} backTo="/profile" />
+
+      {!isLoading && !error ? (
+        <div className="settings-tabs">
+          {(["general", "invoice", "payment", "email"] as const).map((key) => (
+            <button
+              key={key}
+              className={tab === key ? "settings-tab active" : "settings-tab"}
+              onClick={() => setTab(key)}
+              type="button"
+            >
+              {t(`settings.tabs.${key}`)}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {isLoading ? <div className="card">{t("app.loading")}</div> : null}
 
@@ -123,96 +139,104 @@ export function CompanySettingsPage() {
           ) : null}
 
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField
-              label={t("settings.fields.companyName")}
-              error={errors.companyName?.message}
-              {...register("companyName")}
-            />
-            <FormField
-              label={t("settings.fields.email")}
-              type="email"
-              autoComplete="email"
-              error={errors.email?.message}
-              {...register("email")}
-            />
-            <div className="md:col-span-2">
-              <FormTextArea
-                label={t("settings.fields.address")}
-                error={errors.address?.message}
-                {...register("address")}
-              />
-            </div>
-            <FormField
-              label={t("settings.fields.country")}
-              error={errors.country?.message}
-              {...register("country")}
-            />
-            <FormField
-              label={t("settings.fields.taxNumber")}
-              error={errors.taxNumber?.message}
-              {...register("taxNumber")}
-            />
-            <FormField
-              label={t("settings.fields.phoneNumber")}
-              type="tel"
-              autoComplete="tel"
-              error={errors.phoneNumber?.message}
-              {...register("phoneNumber")}
-            />
-            <FormField
-              label={t("settings.fields.timeZone")}
-              placeholder="America/New_York"
-              error={errors.timeZone?.message}
-              {...register("timeZone")}
-            />
-          </div>
+            {tab === "general" ? (
+              <>
+                <FormField
+                  label={t("settings.fields.companyName")}
+                  error={errors.companyName?.message}
+                  {...register("companyName")}
+                />
+                <FormField
+                  label={t("settings.fields.phoneNumber")}
+                  type="tel"
+                  autoComplete="tel"
+                  error={errors.phoneNumber?.message}
+                  {...register("phoneNumber")}
+                />
+                <div className="md:col-span-2">
+                  <FormTextArea
+                    label={t("settings.fields.address")}
+                    error={errors.address?.message}
+                    {...register("address")}
+                  />
+                </div>
+                <FormField
+                  label={t("settings.fields.country")}
+                  error={errors.country?.message}
+                  {...register("country")}
+                />
+                <FormField
+                  label={t("settings.fields.taxNumber")}
+                  error={errors.taxNumber?.message}
+                  {...register("taxNumber")}
+                />
+                <FormField
+                  label={t("settings.fields.timeZone")}
+                  placeholder={t("settings.fields.timeZonePlaceholder")}
+                  error={errors.timeZone?.message}
+                  {...register("timeZone")}
+                />
+              </>
+            ) : null}
 
-          <div>
-            <h3 className="mb-3 text-lg font-medium">{t("settings.billingDefaults")}</h3>
-            <div className="grid gap-4 md:grid-cols-2">
+            {tab === "email" ? (
               <FormField
-                label={t("settings.fields.currency")}
-                maxLength={3}
-                error={errors.currency?.message}
-                {...register("currency")}
+                label={t("settings.fields.email")}
+                type="email"
+                autoComplete="email"
+                error={errors.email?.message}
+                {...register("email")}
               />
-              <FormField
-                label={t("settings.fields.invoiceNumberPrefix")}
-                error={errors.invoiceNumberPrefix?.message}
-                {...register("invoiceNumberPrefix")}
-              />
-              <FormField
-                label={t("settings.fields.defaultTaxRate")}
-                type="number"
-                step="0.01"
-                min={0}
-                max={100}
-                error={errors.defaultTaxRate?.message}
-                {...register("defaultTaxRate", { valueAsNumber: true })}
-              />
-              <FormField
-                label={t("settings.fields.paymentTermsDays")}
-                type="number"
-                min={1}
-                max={365}
-                error={errors.paymentTermsDays?.message}
-                {...register("paymentTermsDays", { valueAsNumber: true })}
-              />
-            </div>
+            ) : null}
+
+            {tab === "invoice" ? (
+              <>
+                <FormField
+                  label={t("settings.fields.currency")}
+                  maxLength={3}
+                  error={errors.currency?.message}
+                  {...register("currency")}
+                />
+                <FormField
+                  label={t("settings.fields.invoiceNumberPrefix")}
+                  error={errors.invoiceNumberPrefix?.message}
+                  {...register("invoiceNumberPrefix")}
+                />
+                <FormField
+                  label={t("settings.fields.defaultTaxRate")}
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={100}
+                  error={errors.defaultTaxRate?.message}
+                  {...register("defaultTaxRate", { valueAsNumber: true })}
+                />
+                <FormField
+                  label={t("settings.fields.paymentTermsDays")}
+                  type="number"
+                  min={1}
+                  max={365}
+                  error={errors.paymentTermsDays?.message}
+                  {...register("paymentTermsDays", { valueAsNumber: true })}
+                />
+              </>
+            ) : null}
+
+            {tab === "payment" ? (
+              <p className="md:col-span-2 text-sm text-secondary">{t("settings.paymentTabHint")}</p>
+            ) : null}
           </div>
 
           {formError ? <p className="text-sm text-red-500">{formError}</p> : null}
           {savedMessage ? <p className="text-sm text-green-600">{savedMessage}</p> : null}
 
-          <div className="flex justify-end">
-            <button
-              className="btn-primary"
-              disabled={isSubmitting || saveMutation.isPending || (!isNew && !isDirty)}
-              type="submit"
-            >
-              {isSubmitting || saveMutation.isPending ? t("settings.saving") : t("settings.save")}
-            </button>
-          </div>
+          <button
+            className="btn-primary btn-primary--lg w-full"
+            disabled={isSubmitting || saveMutation.isPending || (!isNew && !isDirty)}
+            type="submit"
+          >
+            {isSubmitting || saveMutation.isPending ? t("settings.saving") : t("settings.saveChanges")}
+          </button>
         </form>
       ) : null}
     </section>

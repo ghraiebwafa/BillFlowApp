@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MoreVertical, Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { PageHeader } from "../../../shared/ui/PageHeader";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import { clientInitial, type ClientResponse } from "../../../domain/billing/client";
@@ -35,17 +36,8 @@ export function ClientsPage() {
   const clients = data ?? [];
 
   return (
-    <section className="mx-auto max-w-3xl space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold">{t("clients.title")}</h2>
-          <p className="text-sm text-secondary">{t("clients.subtitle")}</p>
-        </div>
-        <button className="btn-primary flex items-center gap-1.5 px-3 py-2 text-sm" type="button">
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">{t("clients.add")}</span>
-        </button>
-      </div>
+    <section className="app-screen space-y-4">
+      <PageHeader title={t("clients.title")} subtitle={t("clients.subtitle")} />
 
       <label className="search-input-wrap block">
         <Search className="h-4 w-4 shrink-0 text-secondary" aria-hidden />
@@ -89,6 +81,10 @@ export function ClientsPage() {
           </li>
         ))}
       </ul>
+
+      <button className="fab md:hidden" type="button" aria-label={t("clients.add")}>
+        <Plus className="h-6 w-6" />
+      </button>
     </section>
   );
 }

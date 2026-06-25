@@ -2,10 +2,18 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { WelcomePage } from "../features/auth/pages/WelcomePage";
+import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { CompanySettingsPage } from "../features/company-settings/pages/CompanySettingsPage";
 import { AdminUsersPage } from "../features/admin/pages/AdminUsersPage";
+import { ProfilePage } from "../features/profile/pages/ProfilePage";
+import { InvoicesPage } from "../features/invoices/pages/InvoicesPage";
+import { InvoiceDetailPage } from "../features/invoices/pages/InvoiceDetailPage";
+import { CreateInvoicePage } from "../features/invoices/pages/CreateInvoicePage";
+import { PaymentsPage } from "../features/payments/pages/PaymentsPage";
+import { ReportsPage } from "../features/reports/pages/ReportsPage";
+import { ComingSoonPage } from "../shared/ui/ComingSoonPage";
 import {
   GuestOnly,
   HomeRedirect,
@@ -24,16 +32,24 @@ export function AppRouter() {
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         </Route>
 
         <Route element={<RequireAuth />}>
           <Route element={<RequireVisitor />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings/company" element={<CompanySettingsPage />} />
             <Route path="/clients" element={<ClientsPage />} />
-            <Route path="/items" element={<div className="card">{/* Items module */}Items module</div>} />
-            <Route path="/invoices" element={<div className="card">Invoices module</div>} />
-            <Route path="/reports" element={<div className="card">Reports module</div>} />
+            <Route path="/invoices" element={<InvoicesPage />} />
+            <Route path="/invoices/new" element={<CreateInvoicePage />} />
+            <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
+            <Route path="/payments" element={<PaymentsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route
+              path="/items"
+              element={<ComingSoonPage titleKey="nav.items" subtitleKey="dashboard.modules.items.desc" />}
+            />
           </Route>
 
           <Route element={<RequireAdmin />}>

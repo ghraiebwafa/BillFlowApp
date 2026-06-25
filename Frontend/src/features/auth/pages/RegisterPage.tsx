@@ -17,6 +17,7 @@ const registerSchema = z
     phoneNumber: z.string().optional(),
     password: z.string().min(8),
     confirmPassword: z.string().min(8),
+    acceptTerms: z.boolean().refine((value) => value, { message: "You must accept the terms" }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -43,6 +44,7 @@ export function RegisterPage() {
       phoneNumber: "",
       password: "",
       confirmPassword: "",
+      acceptTerms: false,
     },
   });
 
@@ -115,9 +117,15 @@ export function RegisterPage() {
           {...register("confirmPassword")}
         />
 
+        <label className="flex items-start gap-2 text-sm text-secondary">
+          <input className="mt-1 accent-[var(--billflow-orange)]" type="checkbox" {...register("acceptTerms")} />
+          <span>{t("auth.acceptTerms")}</span>
+        </label>
+        {errors.acceptTerms ? <p className="text-xs text-red-500">{errors.acceptTerms.message}</p> : null}
+
         {formError ? <p className="text-sm text-red-500">{formError}</p> : null}
 
-        <button className="btn-primary w-full" disabled={isSubmitting} type="submit">
+        <button className="btn-primary btn-primary--lg w-full" disabled={isSubmitting} type="submit">
           {isSubmitting ? t("auth.creatingAccount") : t("auth.register")}
         </button>
       </form>

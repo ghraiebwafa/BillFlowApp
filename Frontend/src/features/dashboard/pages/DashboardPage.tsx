@@ -1,26 +1,33 @@
-import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  Bell,
-  ChevronRight,
-  FileText,
-  Package,
-  PieChart,
-  Users,
-} from "lucide-react";
-import { AuthBrandHeader } from "../../../shared/ui/AuthBrandHeader";
+import { useQuery } from "@tanstack/react-query";
+import { PageHeader } from "../../../shared/ui/PageHeader";
+import { LineChart } from "../../../shared/ui/LineChart";
 import { managementRequest } from "../../../shared/api/management-client";
 import type { DashboardResponse } from "../../../domain/billing/dashboard";
 import { ApiError } from "../../../shared/api/api-error";
 
-const navCards = [
-  { to: "/clients", titleKey: "dashboard.modules.clients.title", descKey: "dashboard.modules.clients.desc", icon: Users },
-  { to: "/items", titleKey: "dashboard.modules.items.title", descKey: "dashboard.modules.items.desc", icon: Package },
-  { to: "/invoices", titleKey: "dashboard.modules.invoices.title", descKey: "dashboard.modules.invoices.desc", icon: FileText },
-  { to: "/reports", titleKey: "dashboard.modules.reminders.title", descKey: "dashboard.modules.reminders.desc", icon: Bell },
-  { to: "/reports", titleKey: "dashboard.modules.reports.title", descKey: "dashboard.modules.reports.desc", icon: PieChart },
-] as const;
+const PAID_STATUS = 3;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function formatCurrentMonthRange(): string {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const fmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return `${fmt.format(start)} – ${fmt.format(end)}`;
+}
+
+function countPaidInvoices(data: DashboardResponse): number {
+  return data.invoicesByStatus.find((s) => s.status === PAID_STATUS)?.count ?? 0;
+}
+
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
 
 export function DashboardPage() {
   const { t } = useTranslation();
@@ -30,16 +37,15 @@ export function DashboardPage() {
       managementRequest<DashboardResponse>("/api/v1.0/billing/Dashboard/GetSummary"),
   });
 
-  return (
-    <section className="mx-auto max-w-3xl space-y-6">
-      <div className="auth-hero-section auth-hero-section--compact rounded-2xl md:rounded-3xl">
-        <AuthBrandHeader />
-      </div>
+  const chartPoints =
+    data?.revenueByMonth.slice(-6).map((point) => ({
+      label: MONTHS[point.month - 1] ?? String(point.month),
+      value: point.revenue,
+    })) ?? [];
 
-      <div>
-        <h2 className="text-2xl font-semibold">{t("dashboard.title")}</h2>
-        <p className="text-sm text-secondary">{t("dashboard.subtitle")}</p>
-      </div>
+  return (
+    <section className="app-screen">
+      <PageHeader title={t("nav.dashboard")} subtitle={formatCurrentMonthRange()} />
 
       {isLoading ? <div className="card">{t("app.loading")}</div> : null}
 
@@ -50,36 +56,33 @@ export function DashboardPage() {
       ) : null}
 
       {data ? (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <article className="card text-center">
-            <p className="text-xs text-secondary">{t("dashboard.cards.revenue")}</p>
-            <p className="text-xl font-semibold">{data.totalRevenue.toFixed(2)}</p>
-          </article>
-          <article className="card text-center">
-            <p className="text-xs text-secondary">{t("dashboard.cards.invoices")}</p>
-            <p className="text-xl font-semibold">{data.totalInvoices}</p>
-          </article>
-          <article className="card text-center">
-            <p className="text-xs text-secondary">{t("dashboard.cards.clients")}</p>
-            <p className="text-xl font-semibold">{data.activeClientsCount}</p>
-          </article>
-        </div>
-      ) : null}
+        <>
+          <div className="stat-grid">
+            <article className="stat-card">
+              <p className="stat-card-label">{t("dashboard.cards.revenue")}</p>
+              <p className="stat-card-value">{formatCurrency(data.totalRevenue)}</p>
+            </article>
+            <article className="stat-card">
+              <p className="stat-card-label">{t("dashboard.cards.invoices")}</p>
+              <p className="stat-card-value">{data.totalInvoices}</p>
+            </article>
+            <article className="stat-card">
+              <p className="stat-card-label">{t("dashboard.cards.outstanding")}</p>
+              <p className="stat-card-value">{formatCurrency(data.pendingPaymentsAmount)}</p>
+            </article>
+            <article className="stat-card">
+              <p className="stat-card-label">{t("dashboard.cards.paid")}</p>
+              <p className="stat-card-value">{countPaidInvoices(data)}</p>
+            </article>
+          </div>
 
-      <div className="space-y-3">
-        {navCards.map(({ to, titleKey, descKey, icon: Icon }) => (
-          <Link key={titleKey} to={to} className="dashboard-nav-card">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[color-mix(in_srgb,var(--billflow-orange)_15%,transparent)] text-accent">
-              <Icon className="h-5 w-5" strokeWidth={1.75} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">{t(titleKey)}</p>
-              <p className="text-sm text-secondary">{t(descKey)}</p>
-            </div>
-            <ChevronRight className="h-5 w-5 shrink-0 text-secondary" />
-          </Link>
-        ))}
-      </div>
+          <LineChart
+            title={t("dashboard.chart.title")}
+            data={chartPoints}
+            emptyLabel={t("dashboard.chart.empty")}
+          />
+        </>
+      ) : null}
     </section>
   );
 }
