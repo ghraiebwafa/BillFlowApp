@@ -36,4 +36,6 @@ public class User
     public ICollection<Item> Items { get; set; } = new List<Item>();
 
     public ICollection<Invoice> Invoices { get; set; } = new List<Invoice>();
+
+    public CompanySettings? CompanySettings { get; set; }
 }
