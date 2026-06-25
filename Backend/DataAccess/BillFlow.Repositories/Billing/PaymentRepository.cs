@@ -107,7 +107,8 @@ public sealed class PaymentRepository(BillFlowDbContext db) : IPaymentRepository
         invoice.Status = InvoicePaymentStatusCalculator.Resolve(
             invoice.Status,
             invoice.Total,
-            completedTotal + amount);
+            completedTotal + amount,
+            invoice.DueDate);
         invoice.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
@@ -152,7 +153,8 @@ public sealed class PaymentRepository(BillFlowDbContext db) : IPaymentRepository
         invoice.Status = InvoicePaymentStatusCalculator.Resolve(
             invoice.Status,
             invoice.Total,
-            completedTotal);
+            completedTotal,
+            invoice.DueDate);
         invoice.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);

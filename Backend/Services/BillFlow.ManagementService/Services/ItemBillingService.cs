@@ -51,6 +51,13 @@ public sealed class ItemBillingService(
         if (ownerId.Error is not null)
             return ownerId.Error;
 
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return OperationResult<ItemResponse>.Fail(
+                "Item name is required.",
+                StatusCodes.Status400BadRequest);
+        }
+
         var item = new Item
         {
             Id = Guid.NewGuid(),
@@ -86,6 +93,13 @@ public sealed class ItemBillingService(
         {
             return OperationResult<ItemResponse>.Fail(
                 "Archived items cannot be updated. Create a new item instead.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return OperationResult<ItemResponse>.Fail(
+                "Item name is required.",
                 StatusCodes.Status400BadRequest);
         }
 

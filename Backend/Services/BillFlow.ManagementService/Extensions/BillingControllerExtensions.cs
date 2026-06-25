@@ -12,7 +12,12 @@ public static class BillingControllerExtensions
         if (result.IsSuccess)
             return new ObjectResult(result.Value) { StatusCode = result.StatusCode };
 
-        return new ObjectResult(new { title = "Error", detail = result.Error })
+        return new ObjectResult(new ProblemDetails
+        {
+            Title = "Error",
+            Detail = result.Error,
+            Status = result.StatusCode,
+        })
         {
             StatusCode = result.StatusCode,
         };
@@ -26,7 +31,12 @@ public static class BillingControllerExtensions
 
         if (!result.IsSuccess)
         {
-            return new ObjectResult(new { title = "Error", detail = result.Error })
+            return new ObjectResult(new ProblemDetails
+            {
+                Title = "Error",
+                Detail = result.Error,
+                Status = result.StatusCode,
+            })
             {
                 StatusCode = result.StatusCode,
             };
@@ -46,7 +56,12 @@ public static class BillingControllerExtensions
 
         if (!result.IsSuccess)
         {
-            return new ObjectResult(new { title = "Error", detail = result.Error })
+            return new ObjectResult(new ProblemDetails
+            {
+                Title = "Error",
+                Detail = result.Error,
+                Status = result.StatusCode,
+            })
             {
                 StatusCode = result.StatusCode,
             };
