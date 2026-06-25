@@ -15,7 +15,7 @@ services:
   auth-service:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      APPLY_MIGRATIONS: ${APPLY_MIGRATIONS:-false}
+      APPLY_MIGRATIONS: "true"
       ALLOW_DEV_RESET_PASSWORD: "false"
 
   management-service:
