@@ -4,9 +4,16 @@ export function AuthBrandHeader() {
   const { t } = useTranslation();
 
   return (
-    <div className="flex flex-col items-center text-center">
-      <img src="/assets/billflow-logo.png" alt="BillFlow" className="mb-3 h-16 w-auto drop-shadow-sm" />
-      <p className="text-sm font-medium text-[var(--billflow-maroon)]/80">{t("app.tagline")}</p>
+    <div className="auth-brand">
+      <img
+        src="/assets/billflow-icon.png"
+        alt=""
+        className="auth-brand-icon"
+        width={72}
+        height={72}
+      />
+      <h1 className="auth-brand-title">BillFlow</h1>
+      <p className="auth-brand-tagline">{t("app.tagline")}</p>
     </div>
   );
 }

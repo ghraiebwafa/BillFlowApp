@@ -8,16 +8,17 @@ export function WelcomePage() {
   const { t } = useTranslation();
 
   return (
-    <div className="auth-shell min-h-screen bg-surface">
-      <div className="auth-shell-inner w-full md:max-w-md">
-        <div className="auth-hero relative">
-          <div className="absolute top-4 right-4 flex items-center gap-2">
+    <div className="auth-page">
+      <div className="auth-page-inner">
+        <div className="auth-hero-section">
+          <header className="auth-toolbar">
             <LanguageSwitcher />
-            <ThemeToggle />
-          </div>
+            <ThemeToggle compact />
+          </header>
           <AuthBrandHeader />
         </div>
-        <div className="auth-panel space-y-5">
+
+        <main className="auth-form-panel space-y-5">
           <div>
             <h2 className="text-xl font-semibold">{t("welcome.title")}</h2>
             <p className="mt-1 text-sm text-secondary">{t("welcome.subtitle")}</p>
@@ -36,7 +37,7 @@ export function WelcomePage() {
           <Link className="btn-secondary block text-center no-underline" to="/register">
             {t("auth.register")}
           </Link>
-        </div>
+        </main>
       </div>
     </div>
   );

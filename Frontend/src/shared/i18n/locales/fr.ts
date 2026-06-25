@@ -33,6 +33,7 @@ export const fr = {
     password: "Mot de passe",
     fullName: "Nom complet",
     phone: "Telephone (optionnel)",
+    phonePlaceholder: "Entrez votre numero de telephone",
     confirmPassword: "Confirmer le mot de passe",
     emailPlaceholder: "Entrez votre email",
     passwordPlaceholder: "Entrez votre mot de passe",

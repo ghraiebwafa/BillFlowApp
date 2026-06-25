@@ -4,12 +4,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
-import { Lock, Mail, User } from "lucide-react";
+import { Lock, Mail, Phone, User } from "lucide-react";
 import { useSessionStore } from "../../../shared/auth/session-store";
 import { AuthLayout } from "../../../shared/layout/AuthLayout";
 import { FormField } from "../../../shared/ui/FormField";
-import { LanguageSwitcher } from "../../../shared/ui/LanguageSwitcher";
-import { ThemeToggle } from "../../../shared/ui/ThemeToggle";
 import { ApiError } from "../../../shared/api/api-error";
 
 const registerSchema = z
@@ -66,11 +64,6 @@ export function RegisterPage() {
 
   return (
     <AuthLayout>
-      <div className="mb-4 flex items-center justify-end gap-2">
-        <LanguageSwitcher />
-        <ThemeToggle />
-      </div>
-
       <h2 className="mb-1 text-xl font-semibold">{t("auth.registerTitle")}</h2>
       <p className="mb-6 text-sm text-secondary">{t("auth.registerSubtitle")}</p>
 
@@ -96,6 +89,8 @@ export function RegisterPage() {
           label={t("auth.phone")}
           type="tel"
           autoComplete="tel"
+          placeholder={t("auth.phonePlaceholder")}
+          icon={Phone}
           error={errors.phoneNumber?.message}
           {...register("phoneNumber")}
         />

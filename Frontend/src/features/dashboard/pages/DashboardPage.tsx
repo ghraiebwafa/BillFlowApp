@@ -9,6 +9,7 @@ import {
   PieChart,
   Users,
 } from "lucide-react";
+import { AuthBrandHeader } from "../../../shared/ui/AuthBrandHeader";
 import { managementRequest } from "../../../shared/api/management-client";
 import type { DashboardResponse } from "../../../domain/billing/dashboard";
 import { ApiError } from "../../../shared/api/api-error";
@@ -31,11 +32,8 @@ export function DashboardPage() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-6">
-      <div className="auth-hero rounded-2xl px-4 py-6 md:rounded-3xl md:px-6">
-        <div className="flex flex-col items-center text-center">
-          <img src="/assets/billflow-logo.png" alt="BillFlow" className="mb-2 h-14 w-auto" />
-          <p className="text-sm font-medium text-[var(--billflow-maroon)]/85">{t("app.tagline")}</p>
-        </div>
+      <div className="auth-hero-section auth-hero-section--compact rounded-2xl md:rounded-3xl">
+        <AuthBrandHeader />
       </div>
 
       <div>

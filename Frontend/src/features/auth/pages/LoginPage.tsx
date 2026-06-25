@@ -8,8 +8,6 @@ import { Lock, Mail } from "lucide-react";
 import { useSessionStore } from "../../../shared/auth/session-store";
 import { AuthLayout } from "../../../shared/layout/AuthLayout";
 import { FormField } from "../../../shared/ui/FormField";
-import { LanguageSwitcher } from "../../../shared/ui/LanguageSwitcher";
-import { ThemeToggle } from "../../../shared/ui/ThemeToggle";
 import { homePathForRole } from "../../../shared/auth/role-utils";
 import { ApiError } from "../../../shared/api/api-error";
 
@@ -48,11 +46,6 @@ export function LoginPage() {
 
   return (
     <AuthLayout>
-      <div className="mb-4 flex items-center justify-end gap-2">
-        <LanguageSwitcher />
-        <ThemeToggle />
-      </div>
-
       <h2 className="mb-1 text-xl font-semibold">{t("auth.loginTitle")}</h2>
       <p className="mb-6 text-sm text-secondary">{t("auth.loginSubtitle")}</p>
 
