@@ -2,7 +2,7 @@ using BillFlow.Models.Dtos.Auth.Account;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Entities;
 using BillFlow.Repositories.Interfaces;
-using BillFlow.Shared.Constants;
+using BillFlow.ManagementService.Services.Billing;
 
 namespace BillFlow.ManagementService.Services;
 
@@ -14,7 +14,7 @@ public sealed class ClientBillingService(
         string? search = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<IReadOnlyList<ClientResponse>>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<ClientResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -26,7 +26,7 @@ public sealed class ClientBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ClientResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ClientResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -41,9 +41,16 @@ public sealed class ClientBillingService(
         CreateClientRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ClientResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ClientResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
+
+        if (!TryValidateClientFields(request.CompanyName, request.ContactName, out var fieldError))
+        {
+            return OperationResult<ClientResponse>.Fail(
+                fieldError!,
+                StatusCodes.Status400BadRequest);
+        }
 
         if (await clientRepository.EmailExistsForOwnerAsync(
                 ownerId.Value!.Value,
@@ -79,9 +86,16 @@ public sealed class ClientBillingService(
         UpdateClientRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ClientResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ClientResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
+
+        if (!TryValidateClientFields(request.CompanyName, request.ContactName, out var fieldError))
+        {
+            return OperationResult<ClientResponse>.Fail(
+                fieldError!,
+                StatusCodes.Status400BadRequest);
+        }
 
         var client = await clientRepository.GetByIdAsync(ownerId.Value!.Value, id, cancellationToken);
         if (client is null)
@@ -116,7 +130,7 @@ public sealed class ClientBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<MessageResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<MessageResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -138,27 +152,16 @@ public sealed class ClientBillingService(
         });
     }
 
-    private (Guid? Value, OperationResult<T>? Error) RequireBusinessOwnerId<T>()
+    private static bool TryValidateClientFields(
+        string companyName,
+        string contactName,
+        out string? error)
     {
-        if (!IsBusinessOwner())
-        {
-            return (null, OperationResult<T>.Fail(
-                "Business owner role is required.",
-                StatusCodes.Status403Forbidden));
-        }
+        if (!BillingInputValidator.TryValidateRequiredText(companyName, "Company name", out error))
+            return false;
 
-        if (currentUser.UserId is null)
-        {
-            return (null, OperationResult<T>.Fail(
-                "Authentication required.",
-                StatusCodes.Status401Unauthorized));
-        }
-
-        return (currentUser.UserId, null);
+        return BillingInputValidator.TryValidateRequiredText(contactName, "Contact name", out error);
     }
-
-    private bool IsBusinessOwner() =>
-        string.Equals(currentUser.Role, RoleNames.Visitor, StringComparison.OrdinalIgnoreCase);
 
     private static OperationResult<T> NotFound<T>() =>
         OperationResult<T>.Fail("Client not found.", StatusCodes.Status404NotFound);

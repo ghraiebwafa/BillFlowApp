@@ -2,7 +2,7 @@ using BillFlow.Models.Dtos.Auth.Account;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Entities;
 using BillFlow.Repositories.Interfaces;
-using BillFlow.Shared.Constants;
+using BillFlow.ManagementService.Services.Billing;
 
 namespace BillFlow.ManagementService.Services;
 
@@ -15,7 +15,7 @@ public sealed class ItemBillingService(
         bool includeArchived = false,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<IReadOnlyList<ItemResponse>>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<ItemResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -32,7 +32,7 @@ public sealed class ItemBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ItemResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ItemResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -47,7 +47,7 @@ public sealed class ItemBillingService(
         CreateItemRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ItemResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ItemResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -74,7 +74,7 @@ public sealed class ItemBillingService(
         UpdateItemRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ItemResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ItemResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -106,7 +106,7 @@ public sealed class ItemBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<MessageResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<MessageResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -133,7 +133,7 @@ public sealed class ItemBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<MessageResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<MessageResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -154,28 +154,6 @@ public sealed class ItemBillingService(
             Message = "Item deleted successfully.",
         });
     }
-
-    private (Guid? Value, OperationResult<T>? Error) RequireBusinessOwnerId<T>()
-    {
-        if (!IsBusinessOwner())
-        {
-            return (null, OperationResult<T>.Fail(
-                "Business owner role is required.",
-                StatusCodes.Status403Forbidden));
-        }
-
-        if (currentUser.UserId is null)
-        {
-            return (null, OperationResult<T>.Fail(
-                "Authentication required.",
-                StatusCodes.Status401Unauthorized));
-        }
-
-        return (currentUser.UserId, null);
-    }
-
-    private bool IsBusinessOwner() =>
-        string.Equals(currentUser.Role, RoleNames.Visitor, StringComparison.OrdinalIgnoreCase);
 
     private static OperationResult<T> NotFound<T>() =>
         OperationResult<T>.Fail("Item not found.", StatusCodes.Status404NotFound);

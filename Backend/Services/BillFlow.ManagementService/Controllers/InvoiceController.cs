@@ -1,3 +1,4 @@
+using BillFlow.ManagementService.Extensions;
 using BillFlow.ManagementService.Services;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Shared.Enums;
@@ -14,77 +15,61 @@ namespace BillFlow.ManagementService.Controllers;
 [Route("api/v1.0/billing/Invoice")]
 public class InvoiceController(IInvoiceBillingService invoiceService) : ControllerBase
 {
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetAll")]
     public Task<IActionResult> GetAll(
         [FromQuery] InvoiceStatus? status,
         [FromQuery] string? search,
         CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.GetAllAsync(status, search, cancellationToken));
+        invoiceService.GetAllAsync(status, search, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetById/{id:guid}")]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.GetByIdAsync(id, cancellationToken));
+        invoiceService.GetByIdAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("Create")]
     public Task<IActionResult> Create(
         [FromBody] CreateInvoiceRequest request,
         CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.CreateAsync(request, cancellationToken));
+        invoiceService.CreateAsync(request, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPut("Update/{id:guid}")]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateInvoiceRequest request,
         CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.UpdateAsync(id, request, cancellationToken));
+        invoiceService.UpdateAsync(id, request, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("Duplicate/{id:guid}")]
     public Task<IActionResult> Duplicate(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.DuplicateAsync(id, cancellationToken));
+        invoiceService.DuplicateAsync(id, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpDelete("Delete/{id:guid}")]
     public Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.DeleteAsync(id, cancellationToken));
+        invoiceService.DeleteAsync(id, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("Send/{id:guid}")]
     public Task<IActionResult> Send(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.SendAsync(id, cancellationToken));
+        invoiceService.SendAsync(id, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("MarkPaid/{id:guid}")]
     public Task<IActionResult> MarkPaid(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.MarkPaidAsync(id, cancellationToken));
+        invoiceService.MarkPaidAsync(id, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("Cancel/{id:guid}")]
     public Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(invoiceService.CancelAsync(id, cancellationToken));
+        invoiceService.CancelAsync(id, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.BillingExport)]
     [HttpGet("DownloadPdf/{id:guid}")]
-    public async Task<IActionResult> DownloadPdf(Guid id, CancellationToken cancellationToken)
-    {
-        var result = await invoiceService.DownloadPdfAsync(id, cancellationToken);
-
-        if (!result.IsSuccess)
-        {
-            return new ObjectResult(new { title = "Error", detail = result.Error })
-            {
-                StatusCode = result.StatusCode,
-            };
-        }
-
-        return File(result.Value!.Content, "application/pdf", result.Value.FileName);
-    }
-
-    private static async Task<IActionResult> ToActionResult<T>(Task<OperationResult<T>> task)
-    {
-        var result = await task;
-
-        if (result.IsSuccess)
-            return new ObjectResult(result.Value) { StatusCode = result.StatusCode };
-
-        return new ObjectResult(new { title = "Error", detail = result.Error })
-        {
-            StatusCode = result.StatusCode,
-        };
-    }
+    public Task<IActionResult> DownloadPdf(Guid id, CancellationToken cancellationToken) =>
+        this.ToBillingPdfResult(invoiceService.DownloadPdfAsync(id, cancellationToken));
 }

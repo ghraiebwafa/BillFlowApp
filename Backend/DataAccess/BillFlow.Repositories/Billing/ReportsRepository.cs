@@ -16,7 +16,11 @@ public sealed class ReportsRepository(BillFlowDbContext db) : IReportsRepository
     {
         var query = db.Invoices
             .Include(i => i.Client)
-            .Where(i => i.OwnerId == ownerId);
+            .Where(i => i.OwnerId == ownerId
+                && (i.Status == InvoiceStatus.Sent
+                    || i.Status == InvoiceStatus.Paid
+                    || i.Status == InvoiceStatus.PartiallyPaid
+                    || i.Status == InvoiceStatus.Overdue));
 
         query = ApplyInvoiceDateFilter(query, from, to);
 

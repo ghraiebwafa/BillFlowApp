@@ -32,6 +32,13 @@ public interface IInvoiceRepository
 
     Task UpdateAsync(Invoice invoice, CancellationToken cancellationToken = default);
 
+    Task ReplaceLineItemsAsync(
+        Invoice invoice,
+        IReadOnlyList<InvoiceLineItem> lineItems,
+        CancellationToken cancellationToken = default);
+
+    Task SyncOverdueStatusesAsync(Guid ownerId, CancellationToken cancellationToken = default);
+
     Task DeleteLineItemsAsync(Guid invoiceId, CancellationToken cancellationToken = default);
 
     Task SoftDeleteAsync(Guid ownerId, Guid invoiceId, CancellationToken cancellationToken = default);

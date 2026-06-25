@@ -3,7 +3,6 @@ using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Entities;
 using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
-using BillFlow.Shared.Constants;
 using BillFlow.ManagementService.Services.Billing;
 
 namespace BillFlow.ManagementService.Services;
@@ -13,11 +12,13 @@ public sealed class PaymentBillingService(
     IInvoiceRepository invoiceRepository,
     ICurrentUserAccessor currentUser) : IPaymentBillingService
 {
+    private const int MaxFuturePaymentDays = 1;
+
     public async Task<OperationResult<IReadOnlyList<PaymentResponse>>> GetByInvoiceAsync(
         Guid invoiceId,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<IReadOnlyList<PaymentResponse>>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<PaymentResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -39,11 +40,13 @@ public sealed class PaymentBillingService(
         CreatePaymentRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<PaymentResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<PaymentResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
+
+        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
 
         var invoice = await invoiceRepository.GetByIdAsync(owner, request.InvoiceId, cancellationToken: cancellationToken);
         if (invoice is null)
@@ -60,35 +63,32 @@ public sealed class PaymentBillingService(
                 StatusCodes.Status400BadRequest);
         }
 
-        var completedTotal = await paymentRepository.GetCompletedTotalForInvoiceAsync(
+        if (!TryValidatePaymentDate(request.PaymentDate, out var dateError))
+        {
+            return OperationResult<PaymentResponse>.Fail(
+                dateError!,
+                StatusCodes.Status400BadRequest);
+        }
+
+        var paymentDate = ToUtcDate(request.PaymentDate ?? DateTime.UtcNow);
+
+        var payment = await paymentRepository.RecordPaymentWithInvoiceSyncAsync(
             owner,
             invoice.Id,
+            request.Amount,
+            request.Method,
+            paymentDate,
+            request.Reference,
+            request.Notes,
             cancellationToken);
 
-        if (completedTotal + request.Amount > invoice.Total)
+        if (payment is null)
         {
             return OperationResult<PaymentResponse>.Fail(
                 "Payment amount exceeds the remaining invoice balance.",
                 StatusCodes.Status400BadRequest);
         }
 
-        var payment = new Payment
-        {
-            Id = Guid.NewGuid(),
-            OwnerId = owner,
-            InvoiceId = invoice.Id,
-            Amount = request.Amount,
-            Method = request.Method,
-            Status = PaymentStatus.Completed,
-            PaymentDate = ToUtcDate(request.PaymentDate ?? DateTime.UtcNow),
-            Reference = request.Reference?.Trim(),
-            Notes = request.Notes?.Trim(),
-        };
-
-        await paymentRepository.CreateAsync(payment, cancellationToken);
-        await SyncInvoicePaymentStatusAsync(owner, invoice, cancellationToken);
-
-        payment.Invoice = invoice;
         return OperationResult<PaymentResponse>.Ok(Map(payment), StatusCodes.Status201Created);
     }
 
@@ -96,7 +96,7 @@ public sealed class PaymentBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<PaymentResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<PaymentResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -113,7 +113,7 @@ public sealed class PaymentBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<PaymentResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<PaymentResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -134,71 +134,52 @@ public sealed class PaymentBillingService(
         string invalidMessage,
         CancellationToken cancellationToken)
     {
-        var payment = await paymentRepository.GetByIdAsync(ownerId, paymentId, cancellationToken);
+        var payment = await paymentRepository.ChangePaymentStatusWithInvoiceSyncAsync(
+            ownerId,
+            paymentId,
+            requiredStatus,
+            newStatus,
+            cancellationToken);
+
         if (payment is null)
         {
-            return OperationResult<PaymentResponse>.Fail(
-                "Payment not found.",
-                StatusCodes.Status404NotFound);
-        }
+            var existing = await paymentRepository.GetByIdAsync(ownerId, paymentId, cancellationToken);
+            if (existing is null)
+            {
+                return OperationResult<PaymentResponse>.Fail(
+                    "Payment not found.",
+                    StatusCodes.Status404NotFound);
+            }
 
-        if (payment.Status != requiredStatus)
-        {
             return OperationResult<PaymentResponse>.Fail(
                 invalidMessage,
                 StatusCodes.Status400BadRequest);
         }
 
-        payment.Status = newStatus;
-        await paymentRepository.UpdateAsync(payment, cancellationToken);
-        await SyncInvoicePaymentStatusAsync(ownerId, payment.Invoice, cancellationToken);
-
-        var updated = await paymentRepository.GetByIdAsync(ownerId, paymentId, cancellationToken);
-        return OperationResult<PaymentResponse>.Ok(Map(updated!));
+        return OperationResult<PaymentResponse>.Ok(Map(payment));
     }
 
-    private async Task SyncInvoicePaymentStatusAsync(
-        Guid ownerId,
-        Invoice invoice,
-        CancellationToken cancellationToken)
+    private static bool TryValidatePaymentDate(DateTime? paymentDate, out string? error)
     {
-        var completedTotal = await paymentRepository.GetCompletedTotalForInvoiceAsync(
-            ownerId,
-            invoice.Id,
-            cancellationToken);
+        if (paymentDate is null)
+        {
+            error = null;
+            return true;
+        }
 
-        invoice.Status = InvoicePaymentStatusCalculator.Resolve(
-            invoice.Status,
-            invoice.Total,
-            completedTotal);
+        var maxAllowed = DateTime.UtcNow.Date.AddDays(MaxFuturePaymentDays);
+        if (paymentDate.Value.Date > maxAllowed)
+        {
+            error = $"Payment date cannot be more than {MaxFuturePaymentDays} day(s) in the future.";
+            return false;
+        }
 
-        await invoiceRepository.UpdateAsync(invoice, cancellationToken);
+        error = null;
+        return true;
     }
 
     private static DateTime ToUtcDate(DateTime date) =>
         DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
-
-    private (Guid? Value, OperationResult<T>? Error) RequireBusinessOwnerId<T>()
-    {
-        if (!IsBusinessOwner())
-        {
-            return (null, OperationResult<T>.Fail(
-                "Business owner role is required.",
-                StatusCodes.Status403Forbidden));
-        }
-
-        if (currentUser.UserId is null)
-        {
-            return (null, OperationResult<T>.Fail(
-                "Authentication required.",
-                StatusCodes.Status401Unauthorized));
-        }
-
-        return (currentUser.UserId, null);
-    }
-
-    private bool IsBusinessOwner() =>
-        string.Equals(currentUser.Role, RoleNames.Visitor, StringComparison.OrdinalIgnoreCase);
 
     private static PaymentResponse Map(Payment payment) => new()
     {

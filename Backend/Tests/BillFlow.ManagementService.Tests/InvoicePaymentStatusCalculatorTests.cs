@@ -1,5 +1,5 @@
 using BillFlow.Models.Shared.Enums;
-using BillFlow.ManagementService.Services.Billing;
+using BillFlow.Shared.Billing;
 using Xunit;
 
 namespace BillFlow.ManagementService.Tests;

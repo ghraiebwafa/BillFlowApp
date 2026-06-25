@@ -1,3 +1,4 @@
+using BillFlow.ManagementService.Extensions;
 using BillFlow.ManagementService.Services;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Shared.Constants;
@@ -13,49 +14,41 @@ namespace BillFlow.ManagementService.Controllers;
 [Route("api/v1.0/billing/Item")]
 public class ItemController(IItemBillingService itemService) : ControllerBase
 {
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetAll")]
     public Task<IActionResult> GetAll(
         [FromQuery] string? search,
         [FromQuery] bool includeArchived = false,
         CancellationToken cancellationToken = default) =>
-        ToActionResult(itemService.GetAllAsync(search, includeArchived, cancellationToken));
+        itemService.GetAllAsync(search, includeArchived, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetById/{id:guid}")]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(itemService.GetByIdAsync(id, cancellationToken));
+        itemService.GetByIdAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("Create")]
     public Task<IActionResult> Create(
         [FromBody] CreateItemRequest request,
         CancellationToken cancellationToken) =>
-        ToActionResult(itemService.CreateAsync(request, cancellationToken));
+        itemService.CreateAsync(request, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPut("Update/{id:guid}")]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateItemRequest request,
         CancellationToken cancellationToken) =>
-        ToActionResult(itemService.UpdateAsync(id, request, cancellationToken));
+        itemService.UpdateAsync(id, request, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("Archive/{id:guid}")]
     public Task<IActionResult> Archive(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(itemService.ArchiveAsync(id, cancellationToken));
+        itemService.ArchiveAsync(id, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpDelete("Delete/{id:guid}")]
     public Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(itemService.DeleteAsync(id, cancellationToken));
-
-    private static async Task<IActionResult> ToActionResult<T>(Task<OperationResult<T>> task)
-    {
-        var result = await task;
-
-        if (result.IsSuccess)
-            return new ObjectResult(result.Value) { StatusCode = result.StatusCode };
-
-        return new ObjectResult(new { title = "Error", detail = result.Error })
-        {
-            StatusCode = result.StatusCode,
-        };
-    }
+        itemService.DeleteAsync(id, cancellationToken).ToBillingActionResult();
 }

@@ -23,4 +23,21 @@ public interface IPaymentRepository
     Task<Payment> CreateAsync(Payment payment, CancellationToken cancellationToken = default);
 
     Task UpdateAsync(Payment payment, CancellationToken cancellationToken = default);
+
+    Task<Payment?> RecordPaymentWithInvoiceSyncAsync(
+        Guid ownerId,
+        Guid invoiceId,
+        decimal amount,
+        PaymentMethod method,
+        DateTime paymentDate,
+        string? reference,
+        string? notes,
+        CancellationToken cancellationToken = default);
+
+    Task<Payment?> ChangePaymentStatusWithInvoiceSyncAsync(
+        Guid ownerId,
+        Guid paymentId,
+        PaymentStatus requiredStatus,
+        PaymentStatus newStatus,
+        CancellationToken cancellationToken = default);
 }

@@ -1,11 +1,12 @@
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Repositories.Interfaces;
-using BillFlow.Shared.Constants;
+using BillFlow.ManagementService.Services.Billing;
 
 namespace BillFlow.ManagementService.Services;
 
 public sealed class DashboardBillingService(
     IDashboardRepository dashboardRepository,
+    IInvoiceRepository invoiceRepository,
     ICurrentUserAccessor currentUser) : IDashboardBillingService
 {
     public async Task<OperationResult<DashboardResponse>> GetSummaryAsync(
@@ -13,38 +14,22 @@ public sealed class DashboardBillingService(
         int topClientsLimit = 5,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<DashboardResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<DashboardResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
+        var owner = ownerId.Value!.Value;
+        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
+
+        revenueMonths = Math.Clamp(revenueMonths, 1, 24);
+        topClientsLimit = Math.Clamp(topClientsLimit, 1, 20);
+
         var dashboard = await dashboardRepository.GetDashboardAsync(
-            ownerId.Value!.Value,
+            owner,
             revenueMonths,
             topClientsLimit,
             cancellationToken);
 
         return OperationResult<DashboardResponse>.Ok(dashboard);
     }
-
-    private (Guid? Value, OperationResult<T>? Error) RequireBusinessOwnerId<T>()
-    {
-        if (!IsBusinessOwner())
-        {
-            return (null, OperationResult<T>.Fail(
-                "Business owner role is required.",
-                StatusCodes.Status403Forbidden));
-        }
-
-        if (currentUser.UserId is null)
-        {
-            return (null, OperationResult<T>.Fail(
-                "Authentication required.",
-                StatusCodes.Status401Unauthorized));
-        }
-
-        return (currentUser.UserId, null);
-    }
-
-    private bool IsBusinessOwner() =>
-        string.Equals(currentUser.Role, RoleNames.Visitor, StringComparison.OrdinalIgnoreCase);
 }

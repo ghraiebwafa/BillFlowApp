@@ -1,7 +1,6 @@
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
-using BillFlow.Shared.Constants;
 using BillFlow.ManagementService.Services.Billing;
 
 namespace BillFlow.ManagementService.Services;
@@ -10,13 +9,15 @@ public sealed class ReportsBillingService(
     IReportsRepository reportsRepository,
     ICurrentUserAccessor currentUser) : IReportsBillingService
 {
+    private const int MaxReportRangeDays = 366;
+
     public async Task<OperationResult<ReportExportFile>> ExportSalesAsync(
         ReportFormat format,
         DateTime? from = null,
         DateTime? to = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ReportExportFile>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ReportExportFile>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -51,7 +52,7 @@ public sealed class ReportsBillingService(
         DateTime? to = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ReportExportFile>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ReportExportFile>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -83,7 +84,7 @@ public sealed class ReportsBillingService(
         ReportFormat format,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ReportExportFile>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ReportExportFile>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -114,7 +115,7 @@ public sealed class ReportsBillingService(
         DateTime? to = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<ReportExportFile>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ReportExportFile>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -150,6 +151,13 @@ public sealed class ReportsBillingService(
             return false;
         }
 
+        if (from is not null && to is not null
+            && (to.Value.Date - from.Value.Date).TotalDays > MaxReportRangeDays)
+        {
+            error = $"Date range cannot exceed {MaxReportRangeDays} days.";
+            return false;
+        }
+
         error = null;
         return true;
     }
@@ -160,26 +168,4 @@ public sealed class ReportsBillingService(
         FileName = export.FileName,
         ContentType = export.ContentType,
     };
-
-    private (Guid? Value, OperationResult<T>? Error) RequireBusinessOwnerId<T>()
-    {
-        if (!IsBusinessOwner())
-        {
-            return (null, OperationResult<T>.Fail(
-                "Business owner role is required.",
-                StatusCodes.Status403Forbidden));
-        }
-
-        if (currentUser.UserId is null)
-        {
-            return (null, OperationResult<T>.Fail(
-                "Authentication required.",
-                StatusCodes.Status401Unauthorized));
-        }
-
-        return (currentUser.UserId, null);
-    }
-
-    private bool IsBusinessOwner() =>
-        string.Equals(currentUser.Role, RoleNames.Visitor, StringComparison.OrdinalIgnoreCase);
 }

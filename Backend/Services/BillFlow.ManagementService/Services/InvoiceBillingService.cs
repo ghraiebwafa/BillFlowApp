@@ -3,8 +3,8 @@ using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Entities;
 using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
-using BillFlow.Shared.Constants;
 using BillFlow.ManagementService.Services.Billing;
+using Microsoft.EntityFrameworkCore;
 
 namespace BillFlow.ManagementService.Services;
 
@@ -12,23 +12,25 @@ public sealed class InvoiceBillingService(
     IInvoiceRepository invoiceRepository,
     IClientRepository clientRepository,
     IItemRepository itemRepository,
+    IPaymentRepository paymentRepository,
     IInvoicePdfGenerator invoicePdfGenerator,
     ICurrentUserAccessor currentUser) : IInvoiceBillingService
 {
+    private const int MaxInvoiceNumberRetries = 5;
+
     public async Task<OperationResult<IReadOnlyList<InvoiceSummaryResponse>>> GetAllAsync(
         InvoiceStatus? status = null,
         string? search = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<IReadOnlyList<InvoiceSummaryResponse>>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<InvoiceSummaryResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        var invoices = await invoiceRepository.GetAllAsync(
-            ownerId.Value!.Value,
-            status,
-            search,
-            cancellationToken);
+        var owner = ownerId.Value!.Value;
+        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
+
+        var invoices = await invoiceRepository.GetAllAsync(owner, status, search, cancellationToken);
 
         return OperationResult<IReadOnlyList<InvoiceSummaryResponse>>.Ok(
             invoices.Select(MapSummary).ToList());
@@ -38,12 +40,15 @@ public sealed class InvoiceBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoiceDetailResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoiceDetailResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
+        var owner = ownerId.Value!.Value;
+        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
+
         var invoice = await invoiceRepository.GetByIdAsync(
-            ownerId.Value!.Value,
+            owner,
             id,
             includeDetails: true,
             cancellationToken);
@@ -58,19 +63,15 @@ public sealed class InvoiceBillingService(
         CreateInvoiceRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoiceDetailResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoiceDetailResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
 
-        var client = await clientRepository.GetByIdAsync(owner, request.ClientId, cancellationToken);
-        if (client is null)
-        {
-            return OperationResult<InvoiceDetailResponse>.Fail(
-                "Client not found.",
-                StatusCodes.Status404NotFound);
-        }
+        var clientError = await ValidateClientAsync(owner, request.ClientId, cancellationToken);
+        if (clientError is not null)
+            return clientError;
 
         var lineItemError = await ValidateLineItemsAsync(owner, request.LineItems, cancellationToken);
         if (lineItemError is not null)
@@ -89,39 +90,52 @@ public sealed class InvoiceBillingService(
         var (lineItems, subtotal, taxAmount, total) =
             InvoiceCalculator.BuildLineItems(request.LineItems, request.TaxRate);
 
-        var invoiceNumber = await GenerateInvoiceNumberAsync(owner, invoiceDate.Year, cancellationToken);
-
-        var invoice = new Invoice
+        for (var attempt = 0; attempt < MaxInvoiceNumberRetries; attempt++)
         {
-            Id = Guid.NewGuid(),
-            OwnerId = owner,
-            ClientId = request.ClientId,
-            InvoiceNumber = invoiceNumber,
-            Status = InvoiceStatus.Draft,
-            InvoiceDate = invoiceDate,
-            DueDate = dueDate,
-            Subtotal = subtotal,
-            TaxRate = request.TaxRate,
-            TaxAmount = taxAmount,
-            Total = total,
-            Notes = request.Notes?.Trim(),
-            LineItems = lineItems.ToList(),
-        };
+            var invoiceNumber = await GenerateInvoiceNumberAsync(owner, invoiceDate.Year, cancellationToken);
 
-        foreach (var lineItem in invoice.LineItems)
-            lineItem.InvoiceId = invoice.Id;
+            var invoice = new Invoice
+            {
+                Id = Guid.NewGuid(),
+                OwnerId = owner,
+                ClientId = request.ClientId,
+                InvoiceNumber = invoiceNumber,
+                Status = InvoiceStatus.Draft,
+                InvoiceDate = invoiceDate,
+                DueDate = dueDate,
+                Subtotal = subtotal,
+                TaxRate = request.TaxRate,
+                TaxAmount = taxAmount,
+                Total = total,
+                Notes = request.Notes?.Trim(),
+                LineItems = lineItems.ToList(),
+            };
 
-        await invoiceRepository.CreateAsync(invoice, cancellationToken);
+            foreach (var lineItem in invoice.LineItems)
+                lineItem.InvoiceId = invoice.Id;
 
-        var created = await invoiceRepository.GetByIdAsync(
-            owner,
-            invoice.Id,
-            includeDetails: true,
-            cancellationToken);
+            try
+            {
+                await invoiceRepository.CreateAsync(invoice, cancellationToken);
 
-        return OperationResult<InvoiceDetailResponse>.Ok(
-            MapDetail(created!),
-            StatusCodes.Status201Created);
+                var created = await invoiceRepository.GetByIdAsync(
+                    owner,
+                    invoice.Id,
+                    includeDetails: true,
+                    cancellationToken);
+
+                return OperationResult<InvoiceDetailResponse>.Ok(
+                    MapDetail(created!),
+                    StatusCodes.Status201Created);
+            }
+            catch (DbUpdateException) when (attempt < MaxInvoiceNumberRetries - 1)
+            {
+            }
+        }
+
+        return OperationResult<InvoiceDetailResponse>.Fail(
+            "Unable to generate a unique invoice number. Please try again.",
+            StatusCodes.Status409Conflict);
     }
 
     public async Task<OperationResult<InvoiceDetailResponse>> UpdateAsync(
@@ -129,7 +143,7 @@ public sealed class InvoiceBillingService(
         UpdateInvoiceRequest request,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoiceDetailResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoiceDetailResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -151,13 +165,9 @@ public sealed class InvoiceBillingService(
                 StatusCodes.Status400BadRequest);
         }
 
-        var client = await clientRepository.GetByIdAsync(owner, request.ClientId, cancellationToken);
-        if (client is null)
-        {
-            return OperationResult<InvoiceDetailResponse>.Fail(
-                "Client not found.",
-                StatusCodes.Status404NotFound);
-        }
+        var clientError = await ValidateClientAsync(owner, request.ClientId, cancellationToken);
+        if (clientError is not null)
+            return clientError;
 
         var lineItemError = await ValidateLineItemsAsync(owner, request.LineItems, cancellationToken);
         if (lineItemError is not null)
@@ -176,9 +186,6 @@ public sealed class InvoiceBillingService(
         var (lineItems, subtotal, taxAmount, total) =
             InvoiceCalculator.BuildLineItems(request.LineItems, request.TaxRate);
 
-        invoice.LineItems.Clear();
-        await invoiceRepository.DeleteLineItemsAsync(invoice.Id, cancellationToken);
-
         invoice.ClientId = request.ClientId;
         invoice.InvoiceDate = invoiceDate;
         invoice.DueDate = dueDate;
@@ -188,13 +195,7 @@ public sealed class InvoiceBillingService(
         invoice.Total = total;
         invoice.Notes = request.Notes?.Trim();
 
-        foreach (var lineItem in lineItems)
-        {
-            lineItem.InvoiceId = invoice.Id;
-            invoice.LineItems.Add(lineItem);
-        }
-
-        await invoiceRepository.UpdateAsync(invoice, cancellationToken);
+        await invoiceRepository.ReplaceLineItemsAsync(invoice, lineItems.ToList(), cancellationToken);
 
         var updated = await invoiceRepository.GetByIdAsync(
             owner,
@@ -209,7 +210,7 @@ public sealed class InvoiceBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoiceDetailResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoiceDetailResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -250,7 +251,7 @@ public sealed class InvoiceBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<MessageResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<MessageResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -278,7 +279,7 @@ public sealed class InvoiceBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoiceDetailResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoiceDetailResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -295,24 +296,73 @@ public sealed class InvoiceBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoiceDetailResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoiceDetailResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        return await ChangeStatusAsync(
-            ownerId.Value!.Value,
+        var owner = ownerId.Value!.Value;
+        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
+
+        var invoice = await invoiceRepository.GetByIdAsync(
+            owner,
             id,
-            InvoiceStatusRules.CanMarkPaid,
-            InvoiceStatus.Paid,
-            "Only sent or overdue invoices can be marked as paid.",
+            includeDetails: true,
             cancellationToken);
+
+        if (invoice is null)
+            return NotFound<InvoiceDetailResponse>();
+
+        if (!InvoiceStatusRules.CanMarkPaid(invoice.Status))
+        {
+            return OperationResult<InvoiceDetailResponse>.Fail(
+                "Only sent, overdue, or partially paid invoices can be marked as paid.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        var completedTotal = await paymentRepository.GetCompletedTotalForInvoiceAsync(
+            owner,
+            invoice.Id,
+            cancellationToken);
+
+        if (completedTotal < invoice.Total)
+        {
+            var payment = await paymentRepository.RecordPaymentWithInvoiceSyncAsync(
+                owner,
+                invoice.Id,
+                invoice.Total - completedTotal,
+                PaymentMethod.Cash,
+                DateTime.UtcNow,
+                "Mark paid adjustment",
+                null,
+                cancellationToken);
+
+            if (payment is null)
+            {
+                return OperationResult<InvoiceDetailResponse>.Fail(
+                    "Unable to record the remaining payment for this invoice.",
+                    StatusCodes.Status409Conflict);
+            }
+        }
+        else if (invoice.Status != InvoiceStatus.Paid)
+        {
+            invoice.Status = InvoiceStatus.Paid;
+            await invoiceRepository.UpdateAsync(invoice, cancellationToken);
+        }
+
+        var updated = await invoiceRepository.GetByIdAsync(
+            owner,
+            id,
+            includeDetails: true,
+            cancellationToken);
+
+        return OperationResult<InvoiceDetailResponse>.Ok(MapDetail(updated!));
     }
 
     public async Task<OperationResult<InvoiceDetailResponse>> CancelAsync(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoiceDetailResponse>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoiceDetailResponse>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
@@ -329,25 +379,37 @@ public sealed class InvoiceBillingService(
         Guid id,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = RequireBusinessOwnerId<InvoicePdfFile>();
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<InvoicePdfFile>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
+        var owner = ownerId.Value!.Value;
+        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
+
         var invoice = await invoiceRepository.GetByIdAsync(
-            ownerId.Value!.Value,
+            owner,
             id,
             includeDetails: true,
             cancellationToken);
 
         if (invoice is null)
+        {
             return OperationResult<InvoicePdfFile>.Fail(
                 "Invoice not found.",
                 StatusCodes.Status404NotFound);
+        }
 
         if (invoice.Status == InvoiceStatus.Cancelled)
         {
             return OperationResult<InvoicePdfFile>.Fail(
                 "Cancelled invoices cannot be downloaded as PDF.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        if (invoice.Status == InvoiceStatus.Draft)
+        {
+            return OperationResult<InvoicePdfFile>.Fail(
+                "Draft invoices cannot be downloaded as PDF. Send the invoice first.",
                 StatusCodes.Status400BadRequest);
         }
 
@@ -391,6 +453,29 @@ public sealed class InvoiceBillingService(
         return OperationResult<InvoiceDetailResponse>.Ok(MapDetail(invoice));
     }
 
+    private async Task<OperationResult<InvoiceDetailResponse>?> ValidateClientAsync(
+        Guid ownerId,
+        Guid clientId,
+        CancellationToken cancellationToken)
+    {
+        var client = await clientRepository.GetByIdAsync(ownerId, clientId, cancellationToken);
+        if (client is null)
+        {
+            return OperationResult<InvoiceDetailResponse>.Fail(
+                "Client not found.",
+                StatusCodes.Status404NotFound);
+        }
+
+        if (!client.IsActive)
+        {
+            return OperationResult<InvoiceDetailResponse>.Fail(
+                "Cannot create or update invoices for an inactive client.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        return null;
+    }
+
     private async Task<string> GenerateInvoiceNumberAsync(
         Guid ownerId,
         int year,
@@ -422,8 +507,15 @@ public sealed class InvoiceBillingService(
             if (item is null)
             {
                 return OperationResult<InvoiceDetailResponse>.Fail(
-                    $"Item '{lineItem.ItemId}' was not found.",
+                    "One or more catalog items were not found.",
                     StatusCodes.Status404NotFound);
+            }
+
+            if (!item.IsActive || item.IsArchived)
+            {
+                return OperationResult<InvoiceDetailResponse>.Fail(
+                    $"Item '{item.Name}' is archived or inactive and cannot be used on invoices.",
+                    StatusCodes.Status400BadRequest);
             }
         }
 
@@ -444,28 +536,6 @@ public sealed class InvoiceBillingService(
 
     private static DateTime ToUtcDate(DateTime date) =>
         DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
-
-    private (Guid? Value, OperationResult<T>? Error) RequireBusinessOwnerId<T>()
-    {
-        if (!IsBusinessOwner())
-        {
-            return (null, OperationResult<T>.Fail(
-                "Business owner role is required.",
-                StatusCodes.Status403Forbidden));
-        }
-
-        if (currentUser.UserId is null)
-        {
-            return (null, OperationResult<T>.Fail(
-                "Authentication required.",
-                StatusCodes.Status401Unauthorized));
-        }
-
-        return (currentUser.UserId, null);
-    }
-
-    private bool IsBusinessOwner() =>
-        string.Equals(currentUser.Role, RoleNames.Visitor, StringComparison.OrdinalIgnoreCase);
 
     private static OperationResult<T> NotFound<T>() =>
         OperationResult<T>.Fail("Invoice not found.", StatusCodes.Status404NotFound);

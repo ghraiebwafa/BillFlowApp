@@ -80,8 +80,46 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
         var end = start.AddYears(1);
 
         return db.Invoices.CountAsync(
-            i => i.OwnerId == ownerId && i.CreatedAt >= start && i.CreatedAt < end,
+            i => i.OwnerId == ownerId && i.InvoiceDate >= start && i.InvoiceDate < end,
             cancellationToken);
+    }
+
+    public async Task ReplaceLineItemsAsync(
+        Invoice invoice,
+        IReadOnlyList<InvoiceLineItem> lineItems,
+        CancellationToken cancellationToken = default)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+
+        await db.InvoiceLineItems
+            .Where(l => l.InvoiceId == invoice.Id)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        foreach (var lineItem in lineItems)
+        {
+            lineItem.InvoiceId = invoice.Id;
+            db.InvoiceLineItems.Add(lineItem);
+        }
+
+        invoice.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
+    public Task SyncOverdueStatusesAsync(Guid ownerId, CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        return db.Invoices
+            .Where(i =>
+                i.OwnerId == ownerId
+                && i.Status == InvoiceStatus.Sent
+                && i.DueDate < today)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(i => i.Status, InvoiceStatus.Overdue)
+                    .SetProperty(i => i.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
     }
 
     public async Task<Invoice> CreateAsync(Invoice invoice, CancellationToken cancellationToken = default)

@@ -8,11 +8,11 @@ public sealed class OperationResult<T>
 
     public int StatusCode { get; init; } = StatusCodes.Status400BadRequest;
 
-    public bool IsSuccess => Value is not null;
+    public bool IsSuccess { get; init; }
 
     public static OperationResult<T> Ok(T value, int statusCode = StatusCodes.Status200OK) =>
-        new() { Value = value, StatusCode = statusCode };
+        new() { Value = value, StatusCode = statusCode, IsSuccess = true };
 
     public static OperationResult<T> Fail(string error, int statusCode) =>
-        new() { Error = error, StatusCode = statusCode };
+        new() { Error = error, StatusCode = statusCode, IsSuccess = false };
 }
