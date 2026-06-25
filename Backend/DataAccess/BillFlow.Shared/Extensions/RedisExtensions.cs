@@ -23,7 +23,6 @@ public static class RedisExtensions
         });
 
         services.AddSingleton<ICacheService, RedisCacheService>();
-        services.AddScoped<ITokenSessionService, TokenSessionService>();
         return services;
     }
 }

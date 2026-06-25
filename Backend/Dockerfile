@@ -17,7 +17,11 @@ FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 ARG ASSEMBLY_NAME
 WORKDIR /app
 
-RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && adduser --disabled-password --gecos "" appuser \
+    && chown -R appuser /app
 USER appuser
 
 COPY --from=build /app/publish ./

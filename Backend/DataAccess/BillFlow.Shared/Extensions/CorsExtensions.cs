@@ -45,4 +45,17 @@ public static class CorsExtensions
 
         return services;
     }
+
+    public static void ValidateBillFlowCors(IHostEnvironment environment)
+    {
+        if (environment.IsDevelopment())
+            return;
+
+        var origins = BillFlowEnv.Get("CORS_ALLOWED_ORIGINS", string.Empty);
+        if (string.IsNullOrWhiteSpace(origins))
+        {
+            throw new InvalidOperationException(
+                "CORS_ALLOWED_ORIGINS must be set when ASPNETCORE_ENVIRONMENT is Production.");
+        }
+    }
 }

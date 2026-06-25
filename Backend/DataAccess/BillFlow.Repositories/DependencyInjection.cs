@@ -3,6 +3,7 @@ using BillFlow.Repositories.Interfaces;
 using BillFlow.Repositories.RefreshTokens;
 using BillFlow.Repositories.Security;
 using BillFlow.Repositories.Users;
+using BillFlow.Shared.Security;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BillFlow.Repositories;
@@ -21,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IReportsRepository, ReportsRepository>();
         services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
         services.AddScoped<IUserSessionRevocationService, UserSessionRevocationService>();
+        services.AddScoped<ITokenSessionService, PersistedTokenSessionService>();
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();
         return services;
     }

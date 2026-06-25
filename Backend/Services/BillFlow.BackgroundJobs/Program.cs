@@ -7,7 +7,17 @@ using BillFlow.Shared.Configuration;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 
-Env.TraversePath().Load();
+if (string.Equals(
+        Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT"),
+        "Development",
+        StringComparison.OrdinalIgnoreCase)
+    || string.Equals(
+        Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"),
+        "Development",
+        StringComparison.OrdinalIgnoreCase))
+{
+    Env.TraversePath().Load();
+}
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -16,6 +26,7 @@ builder.Services.AddDbContext<BillFlowDbContext>(options =>
 
 builder.Services.AddBillFlowRepositories();
 builder.Services.AddHostedService<OverdueInvoiceSyncHostedService>();
+builder.Services.AddHostedService<RefreshTokenCleanupHostedService>();
 
 var host = builder.Build();
 host.Run();
