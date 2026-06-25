@@ -81,7 +81,8 @@ namespace BillFlow.Database.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerId", "Email")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsDeleted\" = false");
 
                     b.ToTable("Clients");
                 });

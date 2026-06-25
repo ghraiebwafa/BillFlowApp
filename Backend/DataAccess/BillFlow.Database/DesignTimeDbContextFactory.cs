@@ -13,7 +13,7 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<Bil
         Env.TraversePath().Load();
 
         var optionsBuilder = new DbContextOptionsBuilder<BillFlowDbContext>();
-        optionsBuilder.UseNpgsql(PostgresConnection.FromEnvironment());
+        optionsBuilder.UseNpgsql(PostgresConnection.ForDesignTime());
 
         return new BillFlowDbContext(optionsBuilder.Options);
     }
