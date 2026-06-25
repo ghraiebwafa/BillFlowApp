@@ -17,6 +17,9 @@ services:
     build:
       context: ./Frontend
       dockerfile: Dockerfile
+      args:
+        VITE_AUTH_API_URL: http://localhost:${AUTH_SERVICE_PORT:-5237}
+        VITE_MANAGEMENT_API_URL: http://localhost:${MANAGEMENT_SERVICE_PORT:-5177}
     container_name: billflow-frontend
     restart: unless-stopped
     environment:

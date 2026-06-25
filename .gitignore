@@ -3,6 +3,9 @@
 # ==========================================
 .env
 .env.*
+!.env.example
+!Frontend/.env.example
+!Backend/.env.example
 Backend/.env
 Frontend/.env
 

@@ -106,7 +106,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173
+Open http://localhost:3000
 
 ### 4. First visit flow
 
@@ -316,7 +316,7 @@ Brand tokens:
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server (http://localhost:5173) |
+| `npm run dev` | Start Vite dev server (http://localhost:3000) |
 | `npm run build` | Typecheck + production build to `dist/` |
 | `npm run preview` | Serve production build locally |
 | `npm run typecheck` | TypeScript check only |
@@ -366,7 +366,7 @@ For development, `npm run dev` is usually faster (hot reload).
 
 - Confirm backend is running: `curl http://localhost:5237/health`
 - Check `Frontend/.env` URLs match your setup
-- CORS allows `localhost:5173` in development
+- CORS allows `localhost:3000` in development
 
 ### 401 on billing pages
 

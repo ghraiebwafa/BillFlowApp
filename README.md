@@ -32,7 +32,7 @@ This repository is a **monorepo**: backend APIs, background workers, frontend SP
 | Background worker | .NET 9 Worker | — (no HTTP) |
 | Database | PostgreSQL 16 | `5433` on host (local override) |
 | Cache | Redis 7 | `6381` on host (local override) |
-| Frontend | React 19, Vite, TypeScript, Tailwind CSS v4 | `5173` (dev) / `3000` (Docker) |
+| Frontend | React 19, Vite, TypeScript, Tailwind CSS v4 | `3000` |
 
 ---
 
@@ -126,7 +126,7 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:5173
+Open http://localhost:3000
 
 ---
 

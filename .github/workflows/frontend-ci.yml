@@ -1,0 +1,42 @@
+name: Frontend CI
+
+on:
+  push:
+    paths:
+      - 'Frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+  pull_request:
+    paths:
+      - 'Frontend/**'
+      - '.github/workflows/frontend-ci.yml'
+
+defaults:
+  run:
+    working-directory: Frontend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_AUTH_API_URL: http://localhost:5237
+          VITE_MANAGEMENT_API_URL: http://localhost:5177
