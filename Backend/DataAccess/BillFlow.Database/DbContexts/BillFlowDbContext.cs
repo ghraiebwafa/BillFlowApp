@@ -17,6 +17,7 @@ public class BillFlowDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceLineItem> InvoiceLineItems => Set<InvoiceLineItem>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -238,6 +239,49 @@ public class BillFlowDbContext : DbContext
 
             entity.Property(x => x.Status)
                 .IsRequired();
+        });
+
+        modelBuilder.Entity<CompanySettings>(entity =>
+        {
+            entity.HasKey(x => x.OwnerId);
+
+            entity.Property(x => x.CompanyName)
+                .HasMaxLength(200)
+                .IsRequired();
+
+            entity.Property(x => x.Address)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.Country)
+                .HasMaxLength(100);
+
+            entity.Property(x => x.TaxNumber)
+                .HasMaxLength(50);
+
+            entity.Property(x => x.PhoneNumber)
+                .HasMaxLength(30);
+
+            entity.Property(x => x.Email)
+                .HasMaxLength(150);
+
+            entity.Property(x => x.Currency)
+                .HasMaxLength(3)
+                .IsRequired();
+
+            entity.Property(x => x.InvoiceNumberPrefix)
+                .HasMaxLength(20)
+                .IsRequired();
+
+            entity.Property(x => x.DefaultTaxRate)
+                .HasPrecision(5, 2);
+
+            entity.Property(x => x.TimeZone)
+                .HasMaxLength(100);
+
+            entity.HasOne(x => x.Owner)
+                .WithOne(x => x.CompanySettings)
+                .HasForeignKey<CompanySettings>(x => x.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
