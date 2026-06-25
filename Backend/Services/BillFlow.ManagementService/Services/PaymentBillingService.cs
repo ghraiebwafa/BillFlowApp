@@ -36,6 +36,18 @@ public sealed class PaymentBillingService(
         return OperationResult<IReadOnlyList<PaymentResponse>>.Ok(payments.Select(Map).ToList());
     }
 
+    public async Task<OperationResult<IReadOnlyList<PaymentResponse>>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<PaymentResponse>>(currentUser);
+        if (ownerId.Error is not null)
+            return ownerId.Error;
+
+        var owner = ownerId.Value!.Value;
+        var payments = await paymentRepository.GetAllByOwnerAsync(owner, cancellationToken);
+        return OperationResult<IReadOnlyList<PaymentResponse>>.Ok(payments.Select(Map).ToList());
+    }
+
     public async Task<OperationResult<PaymentResponse>> CreateAsync(
         CreatePaymentRequest request,
         CancellationToken cancellationToken = default)

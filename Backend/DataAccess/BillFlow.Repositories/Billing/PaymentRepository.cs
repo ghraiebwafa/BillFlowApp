@@ -31,6 +31,16 @@ public sealed class PaymentRepository(BillFlowDbContext db) : IPaymentRepository
             .ThenByDescending(p => p.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlyList<Payment>> GetAllByOwnerAsync(
+        Guid ownerId,
+        CancellationToken cancellationToken = default) =>
+        await db.Payments
+            .Include(p => p.Invoice)
+            .Where(p => p.OwnerId == ownerId && p.Status == PaymentStatus.Completed)
+            .OrderByDescending(p => p.PaymentDate)
+            .ThenByDescending(p => p.CreatedAt)
+            .ToListAsync(cancellationToken);
+
     public Task<decimal> GetCompletedTotalForInvoiceAsync(
         Guid ownerId,
         Guid invoiceId,

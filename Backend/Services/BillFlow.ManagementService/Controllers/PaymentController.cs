@@ -15,6 +15,11 @@ namespace BillFlow.ManagementService.Controllers;
 public class PaymentController(IPaymentBillingService paymentService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
+    [HttpGet("GetAll")]
+    public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
+        paymentService.GetAllAsync(cancellationToken).ToBillingActionResult();
+
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetByInvoice/{invoiceId:guid}")]
     public Task<IActionResult> GetByInvoice(Guid invoiceId, CancellationToken cancellationToken) =>
         paymentService.GetByInvoiceAsync(invoiceId, cancellationToken).ToBillingActionResult();
