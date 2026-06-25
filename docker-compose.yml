@@ -1,39 +1,43 @@
-name: billflow-monorepo
+# Base stack — internal Postgres/Redis, APIs on localhost.
+# Local dev (expose DB ports + optional frontend): docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+# Production (no DB ports on host):           docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+name: billflow
 
 services:
   postgres:
     image: postgres:16-alpine
     container_name: billflow-postgres
     restart: unless-stopped
-    env_file: ./Backend/.env
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-billflow}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
       POSTGRES_DB: ${POSTGRES_DB:-billflow}
+      POSTGRES_USER: ${POSTGRES_USER:-billflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - billflow_pgdata:/var/lib/postgresql/data
     networks:
       - billflow-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-billflow} -d ${POSTGRES_DB:-billflow}"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 20s
-    ports:
-      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
 
   redis:
     image: redis:7-alpine
     container_name: billflow-redis
     restart: unless-stopped
-    env_file: ./Backend/.env
+    env_file:
+      - .env
     command:
       - sh
       - -c
       - redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
-      - redis_data:/data
+      - billflow_redis_data:/data
     networks:
       - billflow-internal
     healthcheck:
@@ -42,11 +46,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 
   auth-service:
-    profiles: [backend]
     build:
       context: ./Backend
       dockerfile: Dockerfile
@@ -55,7 +56,8 @@ services:
         ASSEMBLY_NAME: BillFlow.AuthService
     container_name: billflow-auth
     restart: unless-stopped
-    env_file: ./Backend/.env
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:8080
@@ -63,9 +65,18 @@ services:
       DB_PORT: "5432"
       DB_NAME: ${POSTGRES_DB:-billflow}
       DB_USER: ${POSTGRES_USER:-billflow}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_ISSUER: ${JWT_ISSUER:-BillFlow}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-BillFlow.Api}
+      JWT_ACCESS_TOKEN_MINUTES: ${JWT_ACCESS_TOKEN_MINUTES:-15}
+      JWT_REFRESH_TOKEN_DAYS: ${JWT_REFRESH_TOKEN_DAYS:-7}
+      REFRESH_TOKEN_PEPPER: ${REFRESH_TOKEN_PEPPER:?Set REFRESH_TOKEN_PEPPER in .env}
+      APPLY_MIGRATIONS: ${APPLY_MIGRATIONS:-true}
+      ALLOW_DEV_RESET_PASSWORD: ${ALLOW_DEV_RESET_PASSWORD:-false}
     networks:
       - billflow-internal
     depends_on:
@@ -75,9 +86,14 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:${AUTH_SERVICE_PORT:-5237}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   management-service:
-    profiles: [backend]
     build:
       context: ./Backend
       dockerfile: Dockerfile
@@ -86,7 +102,8 @@ services:
         ASSEMBLY_NAME: BillFlow.ManagementService
     container_name: billflow-management
     restart: unless-stopped
-    env_file: ./Backend/.env
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:8080
@@ -94,9 +111,17 @@ services:
       DB_PORT: "5432"
       DB_NAME: ${POSTGRES_DB:-billflow}
       DB_USER: ${POSTGRES_USER:-billflow}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER:-BillFlow}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-BillFlow.Api}
+      SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:?Set SUPERADMIN_EMAIL in .env}
+      SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:?Set SUPERADMIN_PASSWORD in .env}
+      SUPERADMIN_FULL_NAME: ${SUPERADMIN_FULL_NAME:-BillFlow Super Admin}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
     networks:
       - billflow-internal
     depends_on:
@@ -104,11 +129,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      auth-service:
+        condition: service_healthy
     ports:
       - "127.0.0.1:${MANAGEMENT_SERVICE_PORT:-5177}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
 
   background-jobs:
-    profiles: [backend]
     build:
       context: ./Backend
       dockerfile: Dockerfile
@@ -117,13 +149,14 @@ services:
         ASSEMBLY_NAME: BillFlow.BackgroundJobs
     container_name: billflow-background-jobs
     restart: unless-stopped
-    env_file: ./Backend/.env
+    env_file:
+      - .env
     environment:
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_NAME: ${POSTGRES_DB:-billflow}
       DB_USER: ${POSTGRES_USER:-billflow}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
       OVERDUE_SYNC_INTERVAL_MINUTES: ${OVERDUE_SYNC_INTERVAL_MINUTES:-60}
     networks:
       - billflow-internal
@@ -131,30 +164,10 @@ services:
       postgres:
         condition: service_healthy
 
-  frontend:
-    profiles: [frontend]
-    build:
-      context: ./Frontend
-      dockerfile: Dockerfile
-    container_name: billflow-frontend
-    restart: unless-stopped
-    environment:
-      VITE_AUTH_API_URL: http://localhost:${AUTH_SERVICE_PORT:-5237}
-      VITE_MANAGEMENT_API_URL: http://localhost:${MANAGEMENT_SERVICE_PORT:-5177}
-    ports:
-      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
-    depends_on:
-      auth-service:
-        condition: service_started
-      management-service:
-        condition: service_started
-    networks:
-      - billflow-internal
-
 networks:
   billflow-internal:
     driver: bridge
 
 volumes:
-  postgres_data:
-  redis_data:
+  billflow_pgdata:
+  billflow_redis_data:

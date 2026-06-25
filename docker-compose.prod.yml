@@ -1,0 +1,23 @@
+# Production-oriented compose override.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Differences from dev:
+# - PostgreSQL and Redis are not exposed on the host (internal network only)
+# - ASPNETCORE_ENVIRONMENT defaults to Production
+
+services:
+  postgres:
+    ports: []
+
+  redis:
+    ports: []
+
+  auth-service:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      APPLY_MIGRATIONS: ${APPLY_MIGRATIONS:-false}
+      ALLOW_DEV_RESET_PASSWORD: "false"
+
+  management-service:
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production

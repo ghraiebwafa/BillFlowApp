@@ -1,0 +1,33 @@
+# Local development overrides.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+#
+# - Exposes Postgres and Redis on localhost (for `dotnet run` on the host)
+# - Adds the frontend container
+
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6381}:6379"
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: billflow-frontend
+    restart: unless-stopped
+    environment:
+      VITE_AUTH_API_URL: http://localhost:${AUTH_SERVICE_PORT:-5237}
+      VITE_MANAGEMENT_API_URL: http://localhost:${MANAGEMENT_SERVICE_PORT:-5177}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      management-service:
+        condition: service_healthy
+    networks:
+      - billflow-internal
