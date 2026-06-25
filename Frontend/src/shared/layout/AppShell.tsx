@@ -1,47 +1,40 @@
 import type { PropsWithChildren } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
+  CreditCard,
   FileText,
   LayoutDashboard,
   PieChart,
   Settings,
+  User,
   Users,
 } from "lucide-react";
 import { clsx } from "clsx";
-import { LanguageSwitcher } from "../ui/LanguageSwitcher";
-import { ThemeToggle } from "../ui/ThemeToggle";
 import { BottomNav } from "./BottomNav";
+import { BillFlowLogo } from "../ui/BillFlowLogo";
+import { AppPreferences } from "../ui/AppPreferences";
 import { useSessionStore } from "../auth/session-store";
 import { isAdminRole, isVisitorRole } from "../auth/role-utils";
-import { roleLabel } from "../auth/route-guards";
 
 const visitorLinks = [
   { to: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { to: "/clients", labelKey: "nav.clients", icon: Users },
   { to: "/invoices", labelKey: "nav.invoices", icon: FileText },
+  { to: "/clients", labelKey: "nav.clients", icon: Users },
+  { to: "/payments", labelKey: "nav.payments", icon: CreditCard },
   { to: "/reports", labelKey: "nav.reports", icon: PieChart },
+  { to: "/profile", labelKey: "nav.profile", icon: User },
   { to: "/settings/company", labelKey: "nav.settings", icon: Settings },
 ] as const;
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const { user, logout } = useSessionStore();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/welcome", { replace: true });
-  };
+  const { user } = useSessionStore();
 
   return (
     <div className="min-h-screen bg-surface pb-20 text-primary md:pb-0">
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-muted bg-panel p-4 md:block">
-        <img
-          src="/assets/billflow-logo.png"
-          alt="BillFlow"
-          className="mb-6 h-auto w-full max-w-[200px]"
-        />
+      <aside className="app-sidebar fixed inset-y-0 left-0 hidden w-64 border-r border-muted bg-panel p-4 md:flex md:flex-col">
+        <BillFlowLogo size="header" className="mb-6" />
         <nav className="flex flex-col gap-1 text-sm">
           {user && isVisitorRole(user.role)
             ? visitorLinks.map(({ to, labelKey, icon: Icon }) => (
@@ -61,36 +54,16 @@ export function AppShell({ children }: PropsWithChildren) {
             </Link>
           ) : null}
         </nav>
+
+        <div className="sidebar-preferences mt-auto border-t border-muted pt-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-secondary">
+            {t("profile.appearance")}
+          </p>
+          <AppPreferences />
+        </div>
       </aside>
 
       <main className="md:ml-64">
-        <header className="sticky top-0 z-10 border-b border-muted bg-panel/95 px-4 py-3 backdrop-blur md:px-6 md:py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 md:block">
-              <img
-                src="/assets/billflow-logo.png"
-                alt="BillFlow"
-                className="h-8 w-auto md:hidden"
-              />
-              <div>
-                <h1 className="text-lg font-semibold md:text-xl">{t("app.title")}</h1>
-                {user ? (
-                  <p className="hidden text-sm text-secondary md:block">
-                    {user.fullName} · {roleLabel(user.role)}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <LanguageSwitcher />
-              <ThemeToggle />
-              <button className="btn-ghost text-sm" onClick={() => void handleLogout()} type="button">
-                {t("auth.logout")}
-              </button>
-            </div>
-          </div>
-        </header>
-
         <div className="p-4 md:p-6">{children}</div>
       </main>
 

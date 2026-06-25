@@ -1,21 +1,23 @@
 import { NavLink } from "react-router-dom";
-import { Home, Users, Package, FileText } from "lucide-react";
+import { CreditCard, FileText, Home, PieChart, User, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { clsx } from "clsx";
 
 const items = [
   { to: "/dashboard", labelKey: "nav.home", icon: Home },
-  { to: "/clients", labelKey: "nav.clients", icon: Users },
-  { to: "/items", labelKey: "nav.items", icon: Package },
   { to: "/invoices", labelKey: "nav.invoices", icon: FileText },
+  { to: "/clients", labelKey: "nav.clients", icon: Users },
+  { to: "/payments", labelKey: "nav.payments", icon: CreditCard },
+  { to: "/reports", labelKey: "nav.reports", icon: PieChart },
+  { to: "/profile", labelKey: "nav.profile", icon: User },
 ] as const;
 
 export function BottomNav() {
   const { t } = useTranslation();
 
   return (
-    <nav className="bottom-nav fixed inset-x-0 bottom-0 z-20 md:hidden">
-      <div className="mx-auto grid max-w-lg grid-cols-4 gap-1">
+    <nav className="bottom-nav fixed inset-x-0 bottom-0 z-20 md:hidden" aria-label="Main">
+      <div className="mx-auto grid max-w-lg grid-cols-6 gap-0.5">
         {items.map(({ to, labelKey, icon: Icon }) => (
           <NavLink
             key={to}

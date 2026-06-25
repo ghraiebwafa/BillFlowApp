@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useSessionStore } from "../auth/session-store";
-import { homePathForRole, isAdminRole, isVisitorRole } from "../auth/role-utils";
+import { useSessionStore } from "./session-store";
+import { homePathForRole, isAdminRole, isVisitorRole } from "./role-utils";
 import { UserRole } from "../../domain/auth/types";
 import { AppShell } from "../layout/AppShell";
 

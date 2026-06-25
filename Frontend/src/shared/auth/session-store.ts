@@ -26,6 +26,8 @@ type SessionState = {
   clearSession: () => void;
 };
 
+let refreshInFlight: Promise<boolean> | null = null;
+
 function toPersisted(response: AuthResponse): PersistedSession {
   return {
     accessToken: response.accessToken,
@@ -49,6 +51,15 @@ function applyPersisted(
     user: session.user,
     isAuthenticated: true,
   });
+}
+
+async function syncProfile(accessToken: string): Promise<UserProfile | null> {
+  try {
+    const profile = await authApi.profile(accessToken);
+    return { ...profile, role: normalizeRole(profile.role) };
+  } catch {
+    return null;
+  }
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -77,16 +88,26 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 
   refreshSession: async () => {
-    const { refreshToken } = get();
-    if (!refreshToken) return false;
-
-    try {
-      const response = await authApi.refresh(refreshToken);
-      get().setAuth(response);
-      return true;
-    } catch {
-      return false;
+    if (refreshInFlight) {
+      return refreshInFlight;
     }
+
+    refreshInFlight = (async () => {
+      const { refreshToken } = get();
+      if (!refreshToken) return false;
+
+      try {
+        const response = await authApi.refresh(refreshToken);
+        get().setAuth(response);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        refreshInFlight = null;
+      }
+    })();
+
+    return refreshInFlight;
   },
 
   hydrate: async () => {
@@ -98,14 +119,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     applyPersisted(set, stored);
 
-    if (!isAccessTokenExpired(stored.accessTokenExpiresAt)) {
+    const tokenValid = isAccessTokenExpired(stored.accessTokenExpiresAt)
+      ? await get().refreshSession()
+      : true;
+
+    if (!tokenValid) {
+      get().clearSession();
       set({ isHydrated: true });
       return;
     }
 
-    const refreshed = await get().refreshSession();
-    if (!refreshed) {
-      get().clearSession();
+    const { accessToken } = get();
+    if (accessToken) {
+      const profile = await syncProfile(accessToken);
+      if (profile) {
+        const session = loadSession();
+        if (session) {
+          const updated = { ...session, user: profile };
+          saveSession(updated);
+          set({ user: profile });
+        }
+      }
     }
 
     set({ isHydrated: true });

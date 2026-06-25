@@ -1,27 +1,35 @@
 import { useTranslation } from "react-i18next";
 
-export function LanguageSwitcher() {
-  const { i18n } = useTranslation();
+type LanguageSwitcherProps = {
+  /** compact labels for profile menu row; default shows full language names */
+  compact?: boolean;
+};
+
+export function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
+  const { i18n, t } = useTranslation();
+  const current = i18n.language.startsWith("fr") ? "fr" : "en";
 
   const change = (lang: "en" | "fr") => {
     void i18n.changeLanguage(lang);
   };
 
   return (
-    <div className="inline-flex gap-1 rounded-md border border-muted p-1">
+    <div className="lang-switch" role="group" aria-label={t("profile.language")}>
       <button
         type="button"
-        className={`px-2 py-1 text-xs ${i18n.language === "en" ? "bg-accent text-white rounded" : ""}`}
+        className={current === "en" ? "lang-switch-btn active" : "lang-switch-btn"}
         onClick={() => change("en")}
+        aria-pressed={current === "en"}
       >
-        EN
+        {compact ? "EN" : t("profile.langEn")}
       </button>
       <button
         type="button"
-        className={`px-2 py-1 text-xs ${i18n.language === "fr" ? "bg-accent text-white rounded" : ""}`}
+        className={current === "fr" ? "lang-switch-btn active" : "lang-switch-btn"}
         onClick={() => change("fr")}
+        aria-pressed={current === "fr"}
       >
-        FR
+        {compact ? "FR" : t("profile.langFr")}
       </button>
     </div>
   );
