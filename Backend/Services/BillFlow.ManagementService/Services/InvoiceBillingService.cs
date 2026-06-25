@@ -13,10 +13,13 @@ public sealed class InvoiceBillingService(
     IClientRepository clientRepository,
     IItemRepository itemRepository,
     IPaymentRepository paymentRepository,
+    ICompanySettingsRepository companySettingsRepository,
     IInvoicePdfGenerator invoicePdfGenerator,
     ICurrentUserAccessor currentUser) : IInvoiceBillingService
 {
     private const int MaxInvoiceNumberRetries = 5;
+    private const string DefaultInvoicePrefix = "INV";
+    private const int DefaultPaymentTermsDays = 30;
 
     public async Task<OperationResult<IReadOnlyList<InvoiceSummaryResponse>>> GetAllAsync(
         InvoiceStatus? status = null,
@@ -77,8 +80,15 @@ public sealed class InvoiceBillingService(
         if (lineItemError is not null)
             return lineItemError;
 
+        var companySettings = await companySettingsRepository.GetByOwnerAsync(owner, cancellationToken);
+        var taxRate = request.TaxRate;
+        if (taxRate == 0 && companySettings is not null)
+            taxRate = companySettings.DefaultTaxRate;
+
         var invoiceDate = ToUtcDate(request.InvoiceDate ?? DateTime.UtcNow);
-        var dueDate = ToUtcDate(request.DueDate ?? invoiceDate.AddDays(30));
+        var paymentTermsDays = companySettings?.PaymentTermsDays ?? DefaultPaymentTermsDays;
+        var dueDate = ToUtcDate(request.DueDate ?? invoiceDate.AddDays(paymentTermsDays));
+        var invoicePrefix = companySettings?.InvoiceNumberPrefix ?? DefaultInvoicePrefix;
 
         if (!TryValidateDates(invoiceDate, dueDate, out var dateError))
         {
@@ -88,11 +98,15 @@ public sealed class InvoiceBillingService(
         }
 
         var (lineItems, subtotal, taxAmount, total) =
-            InvoiceCalculator.BuildLineItems(request.LineItems, request.TaxRate);
+            InvoiceCalculator.BuildLineItems(request.LineItems, taxRate);
 
         for (var attempt = 0; attempt < MaxInvoiceNumberRetries; attempt++)
         {
-            var invoiceNumber = await GenerateInvoiceNumberAsync(owner, invoiceDate.Year, cancellationToken);
+            var invoiceNumber = await GenerateInvoiceNumberAsync(
+                owner,
+                invoicePrefix,
+                invoiceDate.Year,
+                cancellationToken);
 
             var invoice = new Invoice
             {
@@ -104,7 +118,7 @@ public sealed class InvoiceBillingService(
                 InvoiceDate = invoiceDate,
                 DueDate = dueDate,
                 Subtotal = subtotal,
-                TaxRate = request.TaxRate,
+                TaxRate = taxRate,
                 TaxAmount = taxAmount,
                 Total = total,
                 Notes = request.Notes?.Trim(),
@@ -414,7 +428,11 @@ public sealed class InvoiceBillingService(
         }
 
         var detail = MapDetail(invoice);
-        var content = invoicePdfGenerator.Generate(detail);
+        var companySettings = await companySettingsRepository.GetByOwnerAsync(owner, cancellationToken);
+        var issuer = companySettings is null
+            ? null
+            : CompanySettingsBillingService.Map(companySettings);
+        var content = invoicePdfGenerator.Generate(detail, issuer);
 
         return OperationResult<InvoicePdfFile>.Ok(new InvoicePdfFile
         {
@@ -478,16 +496,17 @@ public sealed class InvoiceBillingService(
 
     private async Task<string> GenerateInvoiceNumberAsync(
         Guid ownerId,
+        string prefix,
         int year,
         CancellationToken cancellationToken)
     {
         var sequence = await invoiceRepository.CountByOwnerAndYearAsync(ownerId, year, cancellationToken) + 1;
-        var invoiceNumber = InvoiceNumberGenerator.Generate(year, sequence);
+        var invoiceNumber = InvoiceNumberGenerator.Generate(prefix, year, sequence);
 
         while (await invoiceRepository.InvoiceNumberExistsAsync(ownerId, invoiceNumber, cancellationToken: cancellationToken))
         {
             sequence++;
-            invoiceNumber = InvoiceNumberGenerator.Generate(year, sequence);
+            invoiceNumber = InvoiceNumberGenerator.Generate(prefix, year, sequence);
         }
 
         return invoiceNumber;

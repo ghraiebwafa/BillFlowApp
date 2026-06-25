@@ -122,6 +122,21 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
                 cancellationToken);
     }
 
+    public Task<int> SyncOverdueStatusesForAllOwnersAsync(CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        return db.Invoices
+            .Where(i =>
+                i.Status == InvoiceStatus.Sent
+                && i.DueDate < today)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(i => i.Status, InvoiceStatus.Overdue)
+                    .SetProperty(i => i.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
+    }
+
     public async Task<Invoice> CreateAsync(Invoice invoice, CancellationToken cancellationToken = default)
     {
         invoice.CreatedAt = DateTime.UtcNow;

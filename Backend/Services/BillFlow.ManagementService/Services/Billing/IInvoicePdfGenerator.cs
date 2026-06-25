@@ -4,5 +4,5 @@ namespace BillFlow.ManagementService.Services.Billing;
 
 public interface IInvoicePdfGenerator
 {
-    byte[] Generate(InvoiceDetailResponse invoice);
+    byte[] Generate(InvoiceDetailResponse invoice, CompanySettingsResponse? issuer = null);
 }

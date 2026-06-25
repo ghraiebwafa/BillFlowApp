@@ -39,6 +39,8 @@ public interface IInvoiceRepository
 
     Task SyncOverdueStatusesAsync(Guid ownerId, CancellationToken cancellationToken = default);
 
+    Task<int> SyncOverdueStatusesForAllOwnersAsync(CancellationToken cancellationToken = default);
+
     Task DeleteLineItemsAsync(Guid invoiceId, CancellationToken cancellationToken = default);
 
     Task SoftDeleteAsync(Guid ownerId, Guid invoiceId, CancellationToken cancellationToken = default);
