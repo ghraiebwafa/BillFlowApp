@@ -1,0 +1,45 @@
+@Management_Host = http://localhost:5177
+@accessToken = {{superadminLogin.response.body.accessToken}}
+
+### Health
+GET {{Management_Host}}/health
+
+###
+
+### Login as SuperAdmin (use Auth service — same JWT)
+# @name superadminLogin
+POST http://localhost:5237/api/v1.0/auth/account/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@billflow.local",
+  "password": "YOUR_SUPERADMIN_PASSWORD"
+}
+
+###
+
+### Admin — GetAll (SuperAdmin only)
+GET {{Management_Host}}/api/v1.0/management/Admin/GetAll
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Admin — Create
+POST {{Management_Host}}/api/v1.0/management/Admin/Create
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "fullName": "New Admin",
+  "email": "admin@billflow.local",
+  "password": "AdminPass123!",
+  "phoneNumber": null
+}
+
+###
+
+### Visitor — GetAll (Admin or SuperAdmin)
+GET {{Management_Host}}/api/v1.0/management/Visitor/GetAll
+Authorization: Bearer {{accessToken}}
+
+###

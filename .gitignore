@@ -1,0 +1,151 @@
+# ==========================================
+# Environment
+# ==========================================
+.env
+.env.*
+Backend/.env
+Frontend/.env
+
+# ==========================================
+# .NET
+# ==========================================
+**/bin/
+**/obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userprefs
+
+# Rider / ReSharper
+_ReSharper*/
+*.DotSettings.user
+
+# Visual Studio
+.vs/
+
+# VS Code
+.vscode/
+
+# Rider
+.idea/
+
+# NuGet
+*.nupkg
+*.snupkg
+
+# ==========================================
+# Logs
+# ==========================================
+*.log
+logs/
+Log/
+Logs/
+
+# ==========================================
+# Node / React
+# ==========================================
+Frontend/node_modules/
+Frontend/dist/
+Frontend/build/
+Frontend/.next/
+Frontend/.cache/
+Frontend/coverage/
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# Docker
+# ==========================================
+docker-compose.override.yml
+
+# ==========================================
+# Database
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+
+# PostgreSQL local data
+postgres-data/
+pgdata/
+
+# Redis local data
+redis-data/
+
+# ==========================================
+# Certificates & Secrets
+# ==========================================
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+
+secrets/
+Secrets/
+
+# ==========================================
+# OS Generated
+# ==========================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ==========================================
+# Temporary files
+# ==========================================
+*.tmp
+*.temp
+*.cache
+*.bak
+*.orig
+*.swp
+
+# ==========================================
+# Test Results
+# ==========================================
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# ==========================================
+# Coverage
+# ==========================================
+coverage/
+coverage-report/
+*.coverage
+*.coveragexml
+*.trx
+
+# ==========================================
+# Publish
+# ==========================================
+publish/
+artifacts/
+
+# ==========================================
+# Azure
+# ==========================================
+PublishProfiles/
+
+# ==========================================
+# Terraform
+# ==========================================
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# ==========================================
+# Local configuration
+# ==========================================
+appsettings.Development.json
+appsettings.Local.json
+
+# ==========================================
+# Generated files
+# ==========================================
+Generated/

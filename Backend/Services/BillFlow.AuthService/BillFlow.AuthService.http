@@ -1,0 +1,62 @@
+@BillFlow.AuthService_HostAddress = http://127.0.0.1:5237
+@accessToken = {{login.response.body.accessToken}}
+@refreshToken = {{login.response.body.refreshToken}}
+
+### Health
+GET {{BillFlow.AuthService_HostAddress}}/health
+
+###
+
+### Register (Visitor — then login; no email/OTP step)
+POST {{BillFlow.AuthService_HostAddress}}/api/v1.0/auth/account/register
+Content-Type: application/json
+
+{
+  "fullName": "Wafa Visitor",
+  "email": "visitor@billflow.local",
+  "password": "SecurePass123!",
+  "confirmPassword": "SecurePass123!"
+}
+
+###
+
+### Login
+# @name login
+POST {{BillFlow.AuthService_HostAddress}}/api/v1.0/auth/account/login
+Content-Type: application/json
+
+{
+  "email": "visitor@billflow.local",
+  "password": "SecurePass123!"
+}
+
+###
+
+### SuperAdmin login (credentials from .env)
+POST {{BillFlow.AuthService_HostAddress}}/api/v1.0/auth/account/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@billflow.local",
+  "password": "YOUR_SUPERADMIN_PASSWORD"
+}
+
+###
+
+### Profile (Bearer token)
+GET {{BillFlow.AuthService_HostAddress}}/api/v1.0/auth/account/profile
+Authorization: Bearer {{accessToken}}
+
+###
+
+### Reset password (no OTP — email + new password only; dev only)
+POST {{BillFlow.AuthService_HostAddress}}/api/v1.0/auth/account/reset-password
+Content-Type: application/json
+
+{
+  "email": "visitor@billflow.local",
+  "newPassword": "NewSecurePass123!",
+  "confirmNewPassword": "NewSecurePass123!"
+}
+
+###

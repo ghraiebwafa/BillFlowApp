@@ -1,0 +1,136 @@
+name: billflow-monorepo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: billflow-postgres
+    restart: unless-stopped
+    env_file: ./Backend/.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-billflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: ${POSTGRES_DB:-billflow}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - billflow-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: billflow-redis
+    restart: unless-stopped
+    env_file: ./Backend/.env
+    command:
+      - sh
+      - -c
+      - redis-server --requirepass "$$REDIS_PASSWORD" --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - billflow-internal
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+
+  auth-service:
+    profiles: [backend]
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: Services/BillFlow.AuthService/BillFlow.AuthService.csproj
+        ASSEMBLY_NAME: BillFlow.AuthService
+    container_name: billflow-auth
+    restart: unless-stopped
+    env_file: ./Backend/.env
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-billflow}
+      DB_USER: ${POSTGRES_USER:-billflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    networks:
+      - billflow-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${AUTH_SERVICE_PORT:-5237}:8080"
+
+  management-service:
+    profiles: [backend]
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: Services/BillFlow.ManagementService/BillFlow.ManagementService.csproj
+        ASSEMBLY_NAME: BillFlow.ManagementService
+    container_name: billflow-management
+    restart: unless-stopped
+    env_file: ./Backend/.env
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-billflow}
+      DB_USER: ${POSTGRES_USER:-billflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    networks:
+      - billflow-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MANAGEMENT_SERVICE_PORT:-5177}:8080"
+
+  frontend:
+    profiles: [frontend]
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    container_name: billflow-frontend
+    restart: unless-stopped
+    environment:
+      VITE_AUTH_API_URL: http://localhost:${AUTH_SERVICE_PORT:-5237}
+      VITE_MANAGEMENT_API_URL: http://localhost:${MANAGEMENT_SERVICE_PORT:-5177}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      auth-service:
+        condition: service_started
+      management-service:
+        condition: service_started
+    networks:
+      - billflow-internal
+
+networks:
+  billflow-internal:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
