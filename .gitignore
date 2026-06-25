@@ -149,3 +149,4 @@ appsettings.Local.json
 # Generated files
 # ==========================================
 Generated/*.tsbuildinfo
+*.tsbuildinfo
