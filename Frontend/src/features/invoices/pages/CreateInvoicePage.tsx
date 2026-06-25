@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { FormField } from "../../../shared/ui/FormField";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import type { ClientResponse } from "../../../domain/billing/client";
 import type { InvoiceDetail } from "../../../domain/billing/invoice";
+import { clientResponseSchema, invoiceDetailSchema } from "../../../domain/billing/schemas";
 
 type CreateForm = {
   clientId: string;
@@ -27,7 +29,10 @@ export function CreateInvoicePage() {
 
   const { data: clients } = useQuery({
     queryKey: ["clients"],
-    queryFn: () => managementRequest<ClientResponse[]>("/api/v1.0/billing/Client/GetAll"),
+    queryFn: () =>
+      managementRequest<ClientResponse[]>("/api/v1.0/billing/Client/GetAll", {
+        schema: z.array(clientResponseSchema),
+      }),
   });
 
   const { register, handleSubmit, watch, getValues } = useForm<CreateForm>({
@@ -46,8 +51,35 @@ export function CreateInvoicePage() {
       managementRequest<InvoiceDetail>("/api/v1.0/billing/Invoice/Create", {
         method: "POST",
         body,
+        schema: invoiceDetailSchema,
       }),
   });
+
+  const goNext = () => {
+    const values = getValues();
+    setFormError(null);
+
+    if (step === "billTo") {
+      if (!values.clientId) {
+        setFormError(t("invoices.createErrors.clientRequired"));
+        return;
+      }
+      setStep("items");
+      return;
+    }
+
+    if (!values.itemDescription.trim() || values.unitPrice <= 0 || values.quantity < 1) {
+      setFormError(t("invoices.createErrors.itemRequired"));
+      return;
+    }
+
+    setStep("summary");
+  };
+
+  const goBack = () => {
+    setFormError(null);
+    setStep(step === "summary" ? "items" : "billTo");
+  };
 
   const selectedClientId = watch("clientId");
   const selectedClient = clients?.find((c) => c.id === selectedClientId);
@@ -156,20 +188,12 @@ export function CreateInvoicePage() {
 
         <div className="flex gap-2">
           {step !== "billTo" ? (
-            <button
-              className="btn-secondary flex-1"
-              onClick={() => setStep(step === "summary" ? "items" : "billTo")}
-              type="button"
-            >
+            <button className="btn-secondary flex-1" onClick={goBack} type="button">
               {t("common.back")}
             </button>
           ) : null}
           {step !== "summary" ? (
-            <button
-              className="btn-primary flex-1"
-              onClick={() => setStep(step === "billTo" ? "items" : "summary")}
-              type="button"
-            >
+            <button className="btn-primary flex-1" onClick={goNext} type="button">
               {t("common.next")}
             </button>
           ) : (

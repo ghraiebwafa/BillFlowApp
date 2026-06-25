@@ -179,6 +179,7 @@ export const en = {
   },
   reports: {
     subtitle: "Export and analyze your billing data.",
+    downloadError: "Unable to download this report.",
     items: {
       sales: { title: "Sales Report", desc: "Revenue and invoice totals over time." },
       payments: { title: "Payments Report", desc: "All payments received by method and date." },

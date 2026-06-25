@@ -2,12 +2,12 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Share2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
 import { managementRequest } from "../../../shared/api/management-client";
+import { downloadWithAuth } from "../../../shared/api/download-with-auth";
 import { ApiError } from "../../../shared/api/api-error";
-import { env } from "../../../shared/config/env";
-import { useSessionStore } from "../../../shared/auth/session-store";
 import {
   InvoiceStatus,
   type InvoiceDetail,
@@ -15,6 +15,7 @@ import {
 } from "../../../domain/billing/invoice";
 import type { PaymentRecord } from "../../../domain/billing/payment";
 import { paymentMethodLabel, PaymentStatus } from "../../../domain/billing/payment";
+import { invoiceDetailSchema, paymentRecordSchema } from "../../../domain/billing/schemas";
 
 function formatMoney(amount: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
@@ -36,37 +37,37 @@ function statusVariant(status: InvoiceStatus): "paid" | "partial" | "unpaid" | "
 export function InvoiceDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
-  const accessToken = useSessionStore((s) => s.accessToken);
 
   const { data: invoice, isLoading, error } = useQuery({
     queryKey: ["invoice", id],
     enabled: Boolean(id),
-    queryFn: () => managementRequest<InvoiceDetail>(`/api/v1.0/billing/Invoice/GetById/${id}`),
+    queryFn: () =>
+      managementRequest<InvoiceDetail>(`/api/v1.0/billing/Invoice/GetById/${id}`, {
+        schema: invoiceDetailSchema,
+      }),
   });
 
   const { data: payments } = useQuery({
     queryKey: ["invoice-payments", id],
     enabled: Boolean(id),
     queryFn: () =>
-      managementRequest<PaymentRecord[]>(`/api/v1.0/billing/Payment/GetByInvoice/${id}`),
+      managementRequest<PaymentRecord[]>(`/api/v1.0/billing/Payment/GetByInvoice/${id}`, {
+        schema: z.array(paymentRecordSchema),
+      }),
   });
 
   const completedPayments = (payments ?? []).filter((p) => p.status === PaymentStatus.Completed);
 
   const downloadPdf = async () => {
-    if (!id || !accessToken) return;
-    const response = await fetch(
-      `${env.managementApiUrl}/api/v1.0/billing/Invoice/DownloadPdf/${id}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${invoice?.invoiceNumber ?? "invoice"}.pdf`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    if (!id) return;
+    try {
+      await downloadWithAuth(
+        `/api/v1.0/billing/Invoice/DownloadPdf/${id}`,
+        `${invoice?.invoiceNumber ?? "invoice"}.pdf`,
+      );
+    } catch {
+      // download errors are non-blocking for the detail view
+    }
   };
 
   if (!id) return null;

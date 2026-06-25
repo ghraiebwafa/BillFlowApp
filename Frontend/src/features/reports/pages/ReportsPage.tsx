@@ -1,8 +1,9 @@
 import { FileSpreadsheet, FileText, PieChart, Receipt } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../../shared/ui/PageHeader";
-import { env } from "../../../shared/config/env";
-import { useSessionStore } from "../../../shared/auth/session-store";
+import { downloadWithAuth } from "../../../shared/api/download-with-auth";
+import { ApiError } from "../../../shared/api/api-error";
+import { useState } from "react";
 
 const reports = [
   { key: "sales", path: "/api/v1.0/billing/Reports/ExportSales", icon: FileText },
@@ -13,26 +14,22 @@ const reports = [
 
 export function ReportsPage() {
   const { t } = useTranslation();
-  const accessToken = useSessionStore((s) => s.accessToken);
+  const [error, setError] = useState<string | null>(null);
 
   const download = async (path: string, filename: string) => {
-    if (!accessToken) return;
-    const response = await fetch(`${env.managementApiUrl}${path}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    setError(null);
+    try {
+      await downloadWithAuth(path, filename);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("reports.downloadError"));
+    }
   };
 
   return (
     <section className="app-screen">
       <PageHeader title={t("nav.reports")} subtitle={t("reports.subtitle")} />
+
+      {error ? <div className="card text-red-500">{error}</div> : null}
 
       <ul className="list-stack">
         {reports.map(({ key, path, icon: Icon }) => (

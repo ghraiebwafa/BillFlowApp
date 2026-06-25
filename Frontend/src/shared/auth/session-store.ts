@@ -132,6 +132,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { accessToken } = get();
     if (accessToken) {
       const profile = await syncProfile(accessToken);
+      if (profile && !profile.isActive) {
+        get().clearSession();
+        set({ isHydrated: true });
+        return;
+      }
+
       if (profile) {
         const session = loadSession();
         if (session) {
@@ -147,6 +153,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   login: async (payload) => {
     const response = await authApi.login(payload);
+    if (!response.user.isActive) {
+      throw new Error("Account is inactive.");
+    }
     get().setAuth(response);
   },
 

@@ -2,11 +2,14 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
-import { InvoiceStatus, type InvoiceSummary } from "../../../domain/billing/invoice";
+import { paymentRecordSchema } from "../../../domain/billing/schemas";
+import type { PaymentRecord } from "../../../domain/billing/payment";
+import { paymentMethodLabel } from "../../../domain/billing/payment";
 
 function formatMoney(amount: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
@@ -23,20 +26,21 @@ export function PaymentsPage() {
   const [search, setSearch] = useState("");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["invoices", "payments-view"],
-    queryFn: () => managementRequest<InvoiceSummary[]>("/api/v1.0/billing/Invoice/GetAll"),
+    queryKey: ["payments"],
+    queryFn: () =>
+      managementRequest<PaymentRecord[]>("/api/v1.0/billing/Payment/GetAll", {
+        schema: z.array(paymentRecordSchema),
+      }),
   });
 
   const payments = useMemo(() => {
-    const rows = (data ?? []).filter(
-      (inv) => inv.status === InvoiceStatus.Paid || inv.status === InvoiceStatus.PartiallyPaid,
-    );
+    const rows = data ?? [];
     const term = search.trim().toLowerCase();
     if (!term) return rows;
     return rows.filter(
-      (inv) =>
-        inv.invoiceNumber.toLowerCase().includes(term) ||
-        inv.clientCompanyName.toLowerCase().includes(term),
+      (payment) =>
+        payment.invoiceNumber.toLowerCase().includes(term) ||
+        payment.reference?.toLowerCase().includes(term),
     );
   }, [data, search]);
 
@@ -66,11 +70,11 @@ export function PaymentsPage() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-semibold">{row.invoiceNumber}</p>
-                <p className="text-sm text-secondary">{row.clientCompanyName}</p>
-                <p className="mt-1 text-xs text-secondary">{formatDate(row.invoiceDate)}</p>
+                <p className="text-sm text-secondary">{paymentMethodLabel(row.method)}</p>
+                <p className="mt-1 text-xs text-secondary">{formatDate(row.paymentDate)}</p>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-accent">{formatMoney(row.total)}</p>
+                <p className="font-semibold text-accent">{formatMoney(row.amount)}</p>
                 <StatusBadge label={t("payments.completed")} variant="completed" />
               </div>
             </div>

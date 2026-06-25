@@ -1,12 +1,24 @@
+import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useSessionStore } from "./session-store";
 import { homePathForRole, isAdminRole, isVisitorRole } from "./role-utils";
 import { UserRole } from "../../domain/auth/types";
 import { AppShell } from "../layout/AppShell";
 
+function InactiveUserRedirect() {
+  const clearSession = useSessionStore((s) => s.clearSession);
+
+  useEffect(() => {
+    clearSession();
+  }, [clearSession]);
+
+  return <Navigate to="/welcome" replace />;
+}
+
 export function GuestOnly() {
   const { isAuthenticated, user } = useSessionStore();
   if (isAuthenticated && user) {
+    if (!user.isActive) return <InactiveUserRedirect />;
     return <Navigate to={homePathForRole(user.role)} replace />;
   }
 
@@ -14,8 +26,9 @@ export function GuestOnly() {
 }
 
 export function RequireAuth() {
-  const { isAuthenticated } = useSessionStore();
+  const { isAuthenticated, user } = useSessionStore();
   if (!isAuthenticated) return <Navigate to="/welcome" replace />;
+  if (user && !user.isActive) return <InactiveUserRedirect />;
 
   return (
     <AppShell>
@@ -29,6 +42,7 @@ export function RequireVisitor() {
   const location = useLocation();
 
   if (!user) return <Navigate to="/welcome" replace />;
+  if (!user.isActive) return <InactiveUserRedirect />;
   if (!isVisitorRole(user.role)) {
     return <Navigate to="/admin/users" state={{ from: location }} replace />;
   }
@@ -41,6 +55,7 @@ export function RequireAdmin() {
   const location = useLocation();
 
   if (!user) return <Navigate to="/welcome" replace />;
+  if (!user.isActive) return <InactiveUserRedirect />;
   if (!isAdminRole(user.role)) {
     return <Navigate to="/dashboard" state={{ from: location }} replace />;
   }
@@ -51,6 +66,7 @@ export function RequireAdmin() {
 export function HomeRedirect() {
   const { isAuthenticated, user } = useSessionStore();
   if (!isAuthenticated || !user) return <Navigate to="/welcome" replace />;
+  if (!user.isActive) return <InactiveUserRedirect />;
   return <Navigate to={homePathForRole(user.role)} replace />;
 }
 

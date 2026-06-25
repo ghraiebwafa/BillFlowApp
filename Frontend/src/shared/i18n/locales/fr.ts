@@ -170,6 +170,7 @@ export const fr = {
   },
   reports: {
     subtitle: "Exportez et analysez vos donnees de facturation.",
+    downloadError: "Impossible de telecharger ce rapport.",
     items: {
       sales: { title: "Rapport des ventes", desc: "Revenus et totaux de factures." },
       payments: { title: "Rapport des paiements", desc: "Paiements recus par methode et date." },

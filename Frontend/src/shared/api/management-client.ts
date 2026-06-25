@@ -1,17 +1,19 @@
+import type { z } from "zod";
 import { env } from "../config/env";
 import { ApiError, parseApiError } from "./api-error";
 import { isUnauthorized } from "./http-client";
 import { useSessionStore } from "../auth/session-store";
 
-type ManagementRequestOptions = {
+type ManagementRequestOptions<T> = {
   method?: string;
   body?: unknown;
   retryOnUnauthorized?: boolean;
+  schema?: z.ZodTypeAny;
 };
 
 export async function managementRequest<T>(
   path: string,
-  options: ManagementRequestOptions = {},
+  options: ManagementRequestOptions<T> = {},
 ): Promise<T> {
   const url = `${env.managementApiUrl}${path}`;
   const retryOnUnauthorized = options.retryOnUnauthorized ?? true;
@@ -47,7 +49,8 @@ export async function managementRequest<T>(
 
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
-      return (await response.json()) as T;
+      const json = await response.json();
+      return (options.schema ? options.schema.parse(json) : json) as T;
     }
 
     return (await response.blob()) as T;

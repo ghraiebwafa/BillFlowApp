@@ -1,4 +1,6 @@
 import type { AuthTokens, UserProfile } from "../../domain/auth/types";
+import { persistedSessionSchema } from "../../domain/billing/schemas";
+import { normalizeRole } from "./role-utils";
 
 const STORAGE_KEY = "billflow.session";
 
@@ -11,7 +13,16 @@ export function loadSession(): PersistedSession | null {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as PersistedSession;
+    const parsed = persistedSessionSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      sessionStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+
+    return {
+      ...parsed.data,
+      user: { ...parsed.data.user, role: normalizeRole(parsed.data.user.role) },
+    };
   } catch {
     sessionStorage.removeItem(STORAGE_KEY);
     return null;
