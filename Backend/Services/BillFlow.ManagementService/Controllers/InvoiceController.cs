@@ -59,6 +59,22 @@ public class InvoiceController(IInvoiceBillingService invoiceService) : Controll
     public Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken) =>
         ToActionResult(invoiceService.CancelAsync(id, cancellationToken));
 
+    [HttpGet("DownloadPdf/{id:guid}")]
+    public async Task<IActionResult> DownloadPdf(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await invoiceService.DownloadPdfAsync(id, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return new ObjectResult(new { title = "Error", detail = result.Error })
+            {
+                StatusCode = result.StatusCode,
+            };
+        }
+
+        return File(result.Value!.Content, "application/pdf", result.Value.FileName);
+    }
+
     private static async Task<IActionResult> ToActionResult<T>(Task<OperationResult<T>> task)
     {
         var result = await task;

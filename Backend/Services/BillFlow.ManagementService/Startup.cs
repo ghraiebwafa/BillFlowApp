@@ -2,11 +2,13 @@ using BillFlow.Database.Configuration;
 using BillFlow.Database.DbContexts;
 using BillFlow.ManagementService.Extensions;
 using BillFlow.ManagementService.Services;
+using BillFlow.ManagementService.Services.Billing;
 using BillFlow.Repositories;
 using BillFlow.Shared.Configuration;
 using BillFlow.Shared.Extensions;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
+using QuestPDF.Infrastructure;
 using StackExchange.Redis;
 
 namespace BillFlow.ManagementService;
@@ -24,6 +26,8 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
+        QuestPDF.Settings.License = LicenseType.Community;
+
         var jwtOptions = JwtOptions.FromEnvironment();
 
         services.AddControllers();
@@ -52,6 +56,7 @@ public class Startup
         services.AddScoped<IClientBillingService, ClientBillingService>();
         services.AddScoped<IItemBillingService, ItemBillingService>();
         services.AddScoped<IInvoiceBillingService, InvoiceBillingService>();
+        services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
         services.AddScoped<IPaymentBillingService, PaymentBillingService>();
         services.AddScoped<IDashboardBillingService, DashboardBillingService>();
         services.AddScoped<SuperAdminSeeder>();

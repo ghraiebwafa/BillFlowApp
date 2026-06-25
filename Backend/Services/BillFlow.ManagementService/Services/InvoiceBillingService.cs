@@ -12,6 +12,7 @@ public sealed class InvoiceBillingService(
     IInvoiceRepository invoiceRepository,
     IClientRepository clientRepository,
     IItemRepository itemRepository,
+    IInvoicePdfGenerator invoicePdfGenerator,
     ICurrentUserAccessor currentUser) : IInvoiceBillingService
 {
     public async Task<OperationResult<IReadOnlyList<InvoiceSummaryResponse>>> GetAllAsync(
@@ -324,6 +325,42 @@ public sealed class InvoiceBillingService(
             cancellationToken);
     }
 
+    public async Task<OperationResult<InvoicePdfFile>> DownloadPdfAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var ownerId = RequireBusinessOwnerId<InvoicePdfFile>();
+        if (ownerId.Error is not null)
+            return ownerId.Error;
+
+        var invoice = await invoiceRepository.GetByIdAsync(
+            ownerId.Value!.Value,
+            id,
+            includeDetails: true,
+            cancellationToken);
+
+        if (invoice is null)
+            return OperationResult<InvoicePdfFile>.Fail(
+                "Invoice not found.",
+                StatusCodes.Status404NotFound);
+
+        if (invoice.Status == InvoiceStatus.Cancelled)
+        {
+            return OperationResult<InvoicePdfFile>.Fail(
+                "Cancelled invoices cannot be downloaded as PDF.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        var detail = MapDetail(invoice);
+        var content = invoicePdfGenerator.Generate(detail);
+
+        return OperationResult<InvoicePdfFile>.Ok(new InvoicePdfFile
+        {
+            Content = content,
+            FileName = $"{SanitizeFileName(detail.InvoiceNumber)}.pdf",
+        });
+    }
+
     private async Task<OperationResult<InvoiceDetailResponse>> ChangeStatusAsync(
         Guid ownerId,
         Guid invoiceId,
@@ -432,6 +469,12 @@ public sealed class InvoiceBillingService(
 
     private static OperationResult<T> NotFound<T>() =>
         OperationResult<T>.Fail("Invoice not found.", StatusCodes.Status404NotFound);
+
+    private static string SanitizeFileName(string invoiceNumber)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        return string.Concat(invoiceNumber.Select(ch => invalid.Contains(ch) ? '_' : ch));
+    }
 
     private static InvoiceSummaryResponse MapSummary(Invoice invoice) => new()
     {

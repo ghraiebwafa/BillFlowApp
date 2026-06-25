@@ -43,4 +43,8 @@ public interface IInvoiceBillingService
     Task<OperationResult<InvoiceDetailResponse>> CancelAsync(
         Guid id,
         CancellationToken cancellationToken = default);
+
+    Task<OperationResult<InvoicePdfFile>> DownloadPdfAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
 }
