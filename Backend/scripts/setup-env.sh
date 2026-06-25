@@ -57,6 +57,26 @@ replace "POSTGRES_DB" "billflow"
 
 chmod 600 "${TARGET}"
 echo "Created ${TARGET} with random secrets (mode 600)."
-echo "Review values, then run:"
-echo "  docker compose up -d"
-echo "  docker compose --profile tools --profile apps up -d --build"
+
+MONOREPO_ROOT="$(cd "${ROOT}/.." && pwd)"
+MONOREPO_ENV="${MONOREPO_ROOT}/.env"
+if [[ ! -f "${MONOREPO_ENV}" ]]; then
+  {
+    echo "# Used by root docker-compose.yml for host port mapping"
+    echo "# Keep POSTGRES_PORT / REDIS_PORT aligned with Backend/.env"
+    grep -E '^(POSTGRES_USER|POSTGRES_PASSWORD|POSTGRES_DB|POSTGRES_PORT|REDIS_PORT|AUTH_SERVICE_PORT|MANAGEMENT_SERVICE_PORT|ASPNETCORE_ENVIRONMENT)=' "${TARGET}"
+    echo "FRONTEND_PORT=3000"
+  } > "${MONOREPO_ENV}"
+  chmod 600 "${MONOREPO_ENV}"
+  echo "Created ${MONOREPO_ENV} for monorepo docker compose."
+fi
+
+echo "If ports 5432/6379 are already in use on your machine, set in Backend/.env:"
+echo "  POSTGRES_PORT=5433  DB_PORT=5433"
+echo "  REDIS_PORT=6381"
+echo "Then sync the same POSTGRES_PORT and REDIS_PORT into ${MONOREPO_ROOT}/.env"
+echo ""
+echo "Review values, then run from repo root:"
+echo "  docker compose --profile backend up -d --build"
+echo "Or from Backend/:"
+echo "  docker compose --profile apps up -d --build"

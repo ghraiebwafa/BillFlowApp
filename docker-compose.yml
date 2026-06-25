@@ -107,6 +107,30 @@ services:
     ports:
       - "127.0.0.1:${MANAGEMENT_SERVICE_PORT:-5177}:8080"
 
+  background-jobs:
+    profiles: [backend]
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+      args:
+        PROJECT_PATH: Services/BillFlow.BackgroundJobs/BillFlow.BackgroundJobs.csproj
+        ASSEMBLY_NAME: BillFlow.BackgroundJobs
+    container_name: billflow-background-jobs
+    restart: unless-stopped
+    env_file: ./Backend/.env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-billflow}
+      DB_USER: ${POSTGRES_USER:-billflow}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      OVERDUE_SYNC_INTERVAL_MINUTES: ${OVERDUE_SYNC_INTERVAL_MINUTES:-60}
+    networks:
+      - billflow-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   frontend:
     profiles: [frontend]
     build:
