@@ -66,18 +66,44 @@ public sealed class AuthIntegrationTests(AuthApiFixture fixture) : IClassFixture
     }
 
     [Fact]
-    public async Task ResetPassword_ReturnsNotFound_WhenDevFlagDisabled()
+    public async Task RefreshToken_RotatesAndInvalidatesOldToken()
     {
         var client = fixture.Factory.CreateClient();
-        var response = await client.PostAsJsonAsync(
-            "/api/v1.0/auth/account/reset-password",
-            new ResetPasswordRequest
+        var email = $"refresh-{Guid.NewGuid():N}@billflow.test";
+
+        await client.PostAsJsonAsync(
+            "/api/v1.0/auth/account/register",
+            new RegisterRequest
             {
-                Email = "anyone@billflow.test",
-                NewPassword = "NewSecurePass123!",
-                ConfirmNewPassword = "NewSecurePass123!",
+                FullName = "Refresh Test User",
+                Email = email,
+                Password = "SecurePass123!",
+                ConfirmPassword = "SecurePass123!",
             });
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var loginResponse = await client.PostAsJsonAsync(
+            "/api/v1.0/auth/account/login",
+            new LoginRequest { Email = email, Password = "SecurePass123!" });
+
+        var auth = await loginResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(auth);
+
+        var oldRefresh = auth.RefreshToken;
+
+        var refreshResponse = await client.PostAsJsonAsync(
+            "/api/v1.0/auth/account/refresh-token",
+            new RefreshTokenRequest { RefreshToken = oldRefresh });
+
+        Assert.Equal(HttpStatusCode.OK, refreshResponse.StatusCode);
+
+        var rotated = await refreshResponse.Content.ReadFromJsonAsync<AuthResponse>(JsonOptions);
+        Assert.NotNull(rotated);
+        Assert.NotEqual(oldRefresh, rotated.RefreshToken);
+
+        var reuseResponse = await client.PostAsJsonAsync(
+            "/api/v1.0/auth/account/refresh-token",
+            new RefreshTokenRequest { RefreshToken = oldRefresh });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, reuseResponse.StatusCode);
     }
 }

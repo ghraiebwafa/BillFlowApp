@@ -1,3 +1,4 @@
+using BillFlow.ManagementService.Extensions;
 using BillFlow.ManagementService.Services;
 using BillFlow.Models.Dtos.Management;
 using BillFlow.Shared.Constants;
@@ -13,42 +14,33 @@ namespace BillFlow.ManagementService.Controllers;
 [Route("api/v1.0/management/Admin")]
 public class AdminController(IAdminManagementService adminService) : ControllerBase
 {
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetAll")]
     public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
-        ToActionResult(adminService.GetAllAsync(cancellationToken));
+        adminService.GetAllAsync(cancellationToken).ToManagementActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetById/{id:guid}")]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(adminService.GetByIdAsync(id, cancellationToken));
+        adminService.GetByIdAsync(id, cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("Create")]
     public Task<IActionResult> Create(
         [FromBody] CreateAdminRequest request,
         CancellationToken cancellationToken) =>
-        ToActionResult(adminService.CreateAsync(request, cancellationToken));
+        adminService.CreateAsync(request, cancellationToken).ToManagementActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPut("Update/{id:guid}")]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateAdminRequest request,
         CancellationToken cancellationToken) =>
-        ToActionResult(adminService.UpdateAsync(id, request, cancellationToken));
+        adminService.UpdateAsync(id, request, cancellationToken).ToManagementActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpDelete("Delete/{id:guid}")]
     public Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(adminService.DeleteAsync(id, cancellationToken));
-
-    private static async Task<IActionResult> ToActionResult<T>(Task<OperationResult<T>> task)
-    {
-        var result = await task;
-
-        if (result.IsSuccess)
-            return new ObjectResult(result.Value) { StatusCode = result.StatusCode };
-
-        return new ObjectResult(new { title = "Error", detail = result.Error })
-        {
-            StatusCode = result.StatusCode,
-        };
-    }
+        adminService.DeleteAsync(id, cancellationToken).ToManagementActionResult();
 }

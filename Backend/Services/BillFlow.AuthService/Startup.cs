@@ -21,7 +21,7 @@ public class Startup
         _ = configuration;
         _environment = environment;
         if (environment.IsDevelopment())
-            Env.Load();
+            Env.TraversePath().Load();
     }
 
     public void ConfigureServices(IServiceCollection services)

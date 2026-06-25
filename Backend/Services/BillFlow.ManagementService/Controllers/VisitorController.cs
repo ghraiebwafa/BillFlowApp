@@ -1,8 +1,11 @@
+using BillFlow.ManagementService.Extensions;
 using BillFlow.ManagementService.Services;
 using BillFlow.Models.Dtos.Management;
 using BillFlow.Shared.Constants;
+using BillFlow.Shared.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace BillFlow.ManagementService.Controllers;
 
@@ -11,35 +14,26 @@ namespace BillFlow.ManagementService.Controllers;
 [Route("api/v1.0/management/Visitor")]
 public class VisitorController(IVisitorManagementService visitorService) : ControllerBase
 {
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetAll")]
     public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
-        ToActionResult(visitorService.GetAllAsync(cancellationToken));
+        visitorService.GetAllAsync(cancellationToken).ToManagementActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("GetById/{id:guid}")]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(visitorService.GetByIdAsync(id, cancellationToken));
+        visitorService.GetByIdAsync(id, cancellationToken).ToManagementActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPut("Update/{id:guid}")]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateVisitorRequest request,
         CancellationToken cancellationToken) =>
-        ToActionResult(visitorService.UpdateAsync(id, request, cancellationToken));
+        visitorService.UpdateAsync(id, request, cancellationToken).ToManagementActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpDelete("Delete/{id:guid}")]
     public Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
-        ToActionResult(visitorService.DeleteAsync(id, cancellationToken));
-
-    private static async Task<IActionResult> ToActionResult<T>(Task<OperationResult<T>> task)
-    {
-        var result = await task;
-
-        if (result.IsSuccess)
-            return new ObjectResult(result.Value) { StatusCode = result.StatusCode };
-
-        return new ObjectResult(new { title = "Error", detail = result.Error })
-        {
-            StatusCode = result.StatusCode,
-        };
-    }
+        visitorService.DeleteAsync(id, cancellationToken).ToManagementActionResult();
 }

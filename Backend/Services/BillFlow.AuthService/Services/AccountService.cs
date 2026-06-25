@@ -20,6 +20,9 @@ public sealed class AccountService(
     IHostEnvironment environment,
     JwtOptions jwtOptions) : IAccountService
 {
+    private static bool RequireEmailVerification() =>
+        BillFlowEnv.GetBool("REQUIRE_EMAIL_VERIFICATION", defaultValue: false);
+
     public async Task<AccountResult<MessageResponse>> RegisterAsync(
         RegisterRequest request,
         CancellationToken cancellationToken = default)
@@ -39,7 +42,7 @@ public sealed class AccountService(
             PhoneNumber = request.PhoneNumber?.Trim(),
             Role = UserRole.Visitor,
             IsActive = true,
-            IsEmailConfirmed = environment.IsDevelopment(),
+            IsEmailConfirmed = !RequireEmailVerification(),
         };
 
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
@@ -70,7 +73,7 @@ public sealed class AccountService(
                 StatusCodes.Status401Unauthorized);
         }
 
-        if (!environment.IsDevelopment() && !user.IsEmailConfirmed)
+        if (RequireEmailVerification() && !user.IsEmailConfirmed)
         {
             return AccountResult<AuthResponse>.Fail(
                 AuthConstants.EmailNotVerifiedMessage,
@@ -90,7 +93,7 @@ public sealed class AccountService(
     {
         var tokenHash = TokenHasher.Hash(request.RefreshToken);
 
-        if (await cache.ExistsAsync(CacheKeys.RevokedRefreshToken(tokenHash), cancellationToken))
+        if (await cache.ExistsSafeAsync(CacheKeys.RevokedRefreshToken(tokenHash), cancellationToken))
         {
             return AccountResult<AuthResponse>.Fail(
                 AuthConstants.GenericAuthFailureMessage,
@@ -126,7 +129,7 @@ public sealed class AccountService(
                 StatusCodes.Status401Unauthorized);
         }
 
-        await cache.SetAsync(
+        await cache.SetSafeAsync(
             CacheKeys.RevokedRefreshToken(rotation.OldTokenHash),
             true,
             TimeSpan.FromDays(jwtOptions.RefreshTokenDays),
@@ -206,7 +209,7 @@ public sealed class AccountService(
         {
             await refreshTokenRepository.RevokeAsync(stored.Id, cancellationToken: cancellationToken);
 
-            await cache.SetAsync(
+            await cache.SetSafeAsync(
                 CacheKeys.RevokedRefreshToken(tokenHash),
                 true,
                 TimeSpan.FromDays(jwtOptions.RefreshTokenDays),

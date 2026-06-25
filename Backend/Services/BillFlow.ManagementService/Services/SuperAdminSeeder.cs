@@ -17,7 +17,7 @@ public sealed class SuperAdminSeeder(
         if (await userRepository.AnyInRoleAsync(UserRole.SuperAdmin, cancellationToken))
             return;
 
-        var email = BillFlowEnv.Get("SUPERADMIN_EMAIL", "superadmin@billflow.local");
+        var email = BillFlowEnv.Require("SUPERADMIN_EMAIL");
         var password = BillFlowEnv.Require("SUPERADMIN_PASSWORD");
         var fullName = BillFlowEnv.Get("SUPERADMIN_FULL_NAME", "BillFlow Super Admin");
 

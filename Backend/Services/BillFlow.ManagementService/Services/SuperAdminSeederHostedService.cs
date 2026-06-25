@@ -2,6 +2,7 @@ namespace BillFlow.ManagementService.Services;
 
 public sealed class SuperAdminSeederHostedService(
     IServiceScopeFactory scopeFactory,
+    IHostEnvironment environment,
     ILogger<SuperAdminSeederHostedService> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -14,7 +15,9 @@ public sealed class SuperAdminSeederHostedService(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogError(ex, "SuperAdmin seeding failed.");
+            logger.LogCritical(ex, "SuperAdmin seeding failed.");
+            if (!environment.IsDevelopment())
+                throw;
         }
     }
 
