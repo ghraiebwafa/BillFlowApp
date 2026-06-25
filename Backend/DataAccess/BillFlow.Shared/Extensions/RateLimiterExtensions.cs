@@ -45,6 +45,26 @@ public static class RateLimiterExtensions
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                     }));
+
+            options.AddPolicy(RateLimitPolicies.BillingRead, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    GetPartitionKey(httpContext, includeEmail: false),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }));
+
+            options.AddPolicy(RateLimitPolicies.BillingExport, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    GetPartitionKey(httpContext, includeEmail: false),
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0,
+                    }));
         });
 
         return services;
