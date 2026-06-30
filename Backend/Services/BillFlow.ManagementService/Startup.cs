@@ -22,8 +22,11 @@ public class Startup
     {
         _ = configuration;
         _environment = environment;
-        if (environment.IsDevelopment())
+        if (environment.IsDevelopment()
+            && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("DB_HOST")))
+        {
             Env.TraversePath().Load();
+        }
     }
 
     public void ConfigureServices(IServiceCollection services)

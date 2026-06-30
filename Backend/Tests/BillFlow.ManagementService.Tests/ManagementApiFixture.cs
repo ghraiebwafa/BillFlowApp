@@ -1,9 +1,11 @@
 extern alias Auth;
 
 using BillFlow.Database.DbContexts;
+using BillFlow.ManagementService.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
 using Xunit;
@@ -53,13 +55,21 @@ public sealed class ManagementApiFixture : IAsyncLifetime
             builder.UseEnvironment("Development");
         });
 
+        _ = ManagementFactory.CreateClient();
+
+        await using (var scope = ManagementFactory.Services.CreateAsyncScope())
+        {
+            var seeder = scope.ServiceProvider.GetRequiredService<SuperAdminSeeder>();
+            await seeder.SeedAsync();
+        }
+
         AuthFactory = new WebApplicationFactory<Auth::Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Development");
             builder.UseSetting("APPLY_MIGRATIONS", "false");
         });
 
-        _ = ManagementFactory.CreateClient();
+        _ = AuthFactory.CreateClient();
     }
 
     public async Task DisposeAsync()

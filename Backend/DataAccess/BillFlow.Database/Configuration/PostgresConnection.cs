@@ -16,7 +16,7 @@ public static class PostgresConnection
             Password = BillFlowEnv.Require("DB_PASSWORD"),
         };
 
-        var sslMode = BillFlowEnv.Get("DB_SSL_MODE");
+        var sslMode = BillFlowEnv.Get("DB_SSL_MODE", "");
         if (!string.IsNullOrWhiteSpace(sslMode)
             && Enum.TryParse<SslMode>(sslMode, ignoreCase: true, out var mode))
         {
