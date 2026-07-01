@@ -14,6 +14,7 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { LanguageSwitcher } from "../../../shared/ui/LanguageSwitcher";
 import { ThemeToggle } from "../../../shared/ui/ThemeToggle";
 import { useSessionStore } from "../../../shared/auth/session-store";
+import { toast } from "../../../shared/ui/toast-store";
 
 function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -44,6 +45,7 @@ export function ProfilePage() {
 
   const handleLogout = async () => {
     await logout();
+    toast(t("toast.loggedOut"), "info");
     navigate("/welcome", { replace: true });
   };
 

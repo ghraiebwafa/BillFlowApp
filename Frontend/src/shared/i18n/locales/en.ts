@@ -10,6 +10,13 @@ export const en = {
     comingSoonBody: "This module is under active development and will be available in a future release.",
     back: "Back",
     next: "Next",
+    saved: "Changes saved successfully.",
+    actionFailed: "Something went wrong. Please try again.",
+  },
+  toast: {
+    invoiceCreated: "Invoice created successfully.",
+    reportDownloaded: "Report downloaded.",
+    loggedOut: "You have been signed out.",
   },
   nav: {
     home: "Home",

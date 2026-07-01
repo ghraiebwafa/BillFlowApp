@@ -10,6 +10,13 @@ export const fr = {
     comingSoonBody: "Ce module est en cours de developpement et sera disponible dans une prochaine version.",
     back: "Retour",
     next: "Suivant",
+    saved: "Modifications enregistrees.",
+    actionFailed: "Une erreur est survenue. Reessayez.",
+  },
+  toast: {
+    invoiceCreated: "Facture creee avec succes.",
+    reportDownloaded: "Rapport telecharge.",
+    loggedOut: "Vous etes deconnecte.",
   },
   nav: {
     home: "Accueil",

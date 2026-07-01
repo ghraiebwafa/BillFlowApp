@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { downloadWithAuth } from "../../../shared/api/download-with-auth";
 import { ApiError } from "../../../shared/api/api-error";
-import { useState } from "react";
+import { toast } from "../../../shared/ui/toast-store";
 
 const reports = [
   { key: "sales", path: "/api/v1.0/billing/Reports/ExportSales", icon: FileText },
@@ -14,22 +14,19 @@ const reports = [
 
 export function ReportsPage() {
   const { t } = useTranslation();
-  const [error, setError] = useState<string | null>(null);
 
   const download = async (path: string, filename: string) => {
-    setError(null);
     try {
       await downloadWithAuth(path, filename);
+      toast(t("toast.reportDownloaded"), "success");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("reports.downloadError"));
+      toast(err instanceof ApiError ? err.message : t("reports.downloadError"), "error");
     }
   };
 
   return (
     <section className="app-screen">
       <PageHeader title={t("nav.reports")} subtitle={t("reports.subtitle")} />
-
-      {error ? <div className="card text-red-500">{error}</div> : null}
 
       <ul className="list-stack">
         {reports.map(({ key, path, icon: Icon }) => (

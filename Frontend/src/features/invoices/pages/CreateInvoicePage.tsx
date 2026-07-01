@@ -11,6 +11,7 @@ import { ApiError } from "../../../shared/api/api-error";
 import type { ClientResponse } from "../../../domain/billing/client";
 import type { InvoiceDetail } from "../../../domain/billing/invoice";
 import { clientResponseSchema, invoiceDetailSchema } from "../../../domain/billing/schemas";
+import { toast } from "../../../shared/ui/toast-store";
 
 type CreateForm = {
   clientId: string;
@@ -109,8 +110,11 @@ export function CreateInvoicePage() {
         ],
       });
       navigate(`/invoices/${result.id}`, { replace: true });
+      toast(t("toast.invoiceCreated"), "success");
     } catch (error) {
-      setFormError(error instanceof ApiError ? error.message : t("invoices.createErrors.generic"));
+      const message = error instanceof ApiError ? error.message : t("invoices.createErrors.generic");
+      setFormError(message);
+      toast(message, "error");
     }
   });
 
