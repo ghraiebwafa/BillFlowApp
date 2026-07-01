@@ -18,6 +18,7 @@ public class BillFlowDbContext : DbContext
     public DbSet<InvoiceLineItem> InvoiceLineItems => Set<InvoiceLineItem>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -282,6 +283,30 @@ public class BillFlowDbContext : DbContext
                 .WithOne(x => x.CompanySettings)
                 .HasForeignKey<CompanySettings>(x => x.OwnerId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuditEvent>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => new { x.OwnerId, x.CreatedAt });
+
+            entity.Property(x => x.ActorDisplayName)
+                .HasMaxLength(150)
+                .IsRequired();
+
+            entity.Property(x => x.Summary)
+                .HasMaxLength(500)
+                .IsRequired();
+
+            entity.Property(x => x.Metadata)
+                .HasMaxLength(2000);
+
+            entity.Property(x => x.EntityType)
+                .IsRequired();
+
+            entity.Property(x => x.Action)
+                .IsRequired();
         });
     }
 }
