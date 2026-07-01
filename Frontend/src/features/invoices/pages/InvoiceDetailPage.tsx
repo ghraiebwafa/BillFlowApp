@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Download, Share2 } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, Mail, Send } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
@@ -16,6 +16,7 @@ import {
 import type { PaymentRecord } from "../../../domain/billing/payment";
 import { paymentMethodLabel, PaymentStatus } from "../../../domain/billing/payment";
 import { invoiceDetailSchema, paymentRecordSchema } from "../../../domain/billing/schemas";
+import { toast } from "../../../shared/ui/toast-store";
 
 function formatMoney(amount: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
@@ -34,9 +35,19 @@ function statusVariant(status: InvoiceStatus): "paid" | "partial" | "unpaid" | "
   return "unpaid";
 }
 
+function canEmailInvoice(status: InvoiceStatus): boolean {
+  return (
+    status === InvoiceStatus.Sent
+    || status === InvoiceStatus.Overdue
+    || status === InvoiceStatus.PartiallyPaid
+    || status === InvoiceStatus.Paid
+  );
+}
+
 export function InvoiceDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const { data: invoice, isLoading, error } = useQuery({
     queryKey: ["invoice", id],
@@ -56,6 +67,42 @@ export function InvoiceDetailPage() {
       }),
   });
 
+  const sendMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<InvoiceDetail>(`/api/v1.0/billing/Invoice/Send/${id}`, {
+        method: "POST",
+        schema: invoiceDetailSchema,
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["invoice", id], updated);
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast(t("toast.invoiceSent"), "success");
+    },
+    onError: (err) => {
+      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
+    },
+  });
+
+  const emailMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<{ message: string }>(`/api/v1.0/billing/Invoice/Email/${id}`, {
+        method: "POST",
+        schema: z.object({ message: z.string() }),
+      }),
+    onSuccess: (response) => {
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      const skipped = response.message.toLowerCase().includes("smtp");
+      toast(
+        skipped ? t("invoices.emailSkipped") : t("toast.invoiceEmailed"),
+        skipped ? "info" : "success",
+      );
+    },
+    onError: (err) => {
+      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
+    },
+  });
+
   const completedPayments = (payments ?? []).filter((p) => p.status === PaymentStatus.Completed);
 
   const downloadPdf = async () => {
@@ -66,7 +113,7 @@ export function InvoiceDetailPage() {
         `${invoice?.invoiceNumber ?? "invoice"}.pdf`,
       );
     } catch {
-      // download errors are non-blocking for the detail view
+      toast(t("invoices.actionError"), "error");
     }
   };
 
@@ -157,15 +204,49 @@ export function InvoiceDetailPage() {
           ) : null}
 
           <div className="detail-actions">
-            <button className="btn-secondary flex flex-1 items-center justify-center gap-2" onClick={() => void downloadPdf()} type="button">
-              <Download className="h-4 w-4" />
-              {t("invoices.downloadPdf")}
-            </button>
-            <button className="btn-primary flex flex-1 items-center justify-center gap-2" disabled type="button" title={t("common.comingSoon")}>
-              <Share2 className="h-4 w-4" />
-              {t("invoices.share")}
-            </button>
+            {invoice.status === InvoiceStatus.Draft ? (
+              <button
+                className="btn-primary flex flex-1 items-center justify-center gap-2"
+                disabled={sendMutation.isPending}
+                onClick={() => void sendMutation.mutate()}
+                type="button"
+              >
+                <Send className="h-4 w-4" />
+                {sendMutation.isPending ? t("app.loading") : t("invoices.send")}
+              </button>
+            ) : null}
+
+            {canEmailInvoice(invoice.status) ? (
+              <button
+                className="btn-primary flex flex-1 items-center justify-center gap-2"
+                disabled={emailMutation.isPending}
+                onClick={() => void emailMutation.mutate()}
+                type="button"
+              >
+                <Mail className="h-4 w-4" />
+                {emailMutation.isPending ? t("app.loading") : t("invoices.email")}
+              </button>
+            ) : null}
+
+            {invoice.status !== InvoiceStatus.Draft ? (
+              <button
+                className="btn-secondary flex flex-1 items-center justify-center gap-2"
+                onClick={() => void downloadPdf()}
+                type="button"
+              >
+                <Download className="h-4 w-4" />
+                {t("invoices.downloadPdf")}
+              </button>
+            ) : null}
           </div>
+
+          {invoice.status === InvoiceStatus.Draft ? (
+            <p className="text-center text-sm text-secondary">
+              <Link to="/settings/company" className="text-accent no-underline">
+                {t("settings.title")}
+              </Link>
+            </p>
+          ) : null}
         </>
       ) : null}
     </section>

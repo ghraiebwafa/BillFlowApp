@@ -9,6 +9,7 @@ export const AuditAction = {
   Refunded: 8,
   Archived: 9,
   SettingsUpdated: 10,
+  EmailSent: 11,
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
@@ -56,6 +57,8 @@ export function auditActionLabel(action: AuditAction): string {
       return "Archived";
     case AuditAction.SettingsUpdated:
       return "Settings";
+    case AuditAction.EmailSent:
+      return "Email";
     default:
       return "Activity";
   }

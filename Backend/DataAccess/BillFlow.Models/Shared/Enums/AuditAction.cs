@@ -12,4 +12,5 @@ public enum AuditAction
     Refunded = 8,
     Archived = 9,
     SettingsUpdated = 10,
+    EmailSent = 11,
 }

@@ -28,6 +28,8 @@ const companySettingsSchema = z.object({
   defaultTaxRate: z.number().min(0).max(100),
   paymentTermsDays: z.number().int().min(1).max(365),
   timeZone: z.string().max(100),
+  brandColor: z.union([z.literal(""), z.string().regex(/^#?[0-9A-Fa-f]{6}$/)]),
+  invoiceFooterNote: z.string().max(500),
 });
 
 type CompanySettingsForm = z.infer<typeof companySettingsSchema>;
@@ -219,6 +221,19 @@ export function CompanySettingsPage() {
                   error={errors.paymentTermsDays?.message}
                   {...register("paymentTermsDays", { valueAsNumber: true })}
                 />
+                <FormField
+                  label={t("settings.fields.brandColor")}
+                  placeholder="#FF6B00"
+                  error={errors.brandColor?.message}
+                  {...register("brandColor")}
+                />
+                <div className="md:col-span-2">
+                  <FormTextArea
+                    label={t("settings.fields.invoiceFooterNote")}
+                    error={errors.invoiceFooterNote?.message}
+                    {...register("invoiceFooterNote")}
+                  />
+                </div>
               </>
             ) : null}
 

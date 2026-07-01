@@ -10,6 +10,8 @@ export type CompanySettingsResponse = {
   defaultTaxRate: number;
   paymentTermsDays: number;
   timeZone?: string | null;
+  brandColor?: string | null;
+  invoiceFooterNote?: string | null;
   createdAt: string;
   updatedAt?: string | null;
 };
@@ -26,6 +28,8 @@ export type UpsertCompanySettingsRequest = {
   defaultTaxRate: number;
   paymentTermsDays: number;
   timeZone?: string;
+  brandColor?: string;
+  invoiceFooterNote?: string;
 };
 
 export const defaultCompanySettingsForm = {
@@ -40,6 +44,8 @@ export const defaultCompanySettingsForm = {
   defaultTaxRate: 0,
   paymentTermsDays: 30,
   timeZone: "",
+  brandColor: "#FF6B00",
+  invoiceFooterNote: "",
 };
 
 export function mapSettingsToForm(
@@ -57,6 +63,8 @@ export function mapSettingsToForm(
     defaultTaxRate: settings.defaultTaxRate,
     paymentTermsDays: settings.paymentTermsDays,
     timeZone: settings.timeZone ?? "",
+    brandColor: settings.brandColor ?? "#FF6B00",
+    invoiceFooterNote: settings.invoiceFooterNote ?? "",
   };
 }
 
@@ -80,5 +88,7 @@ export function mapFormToRequest(
     defaultTaxRate: values.defaultTaxRate,
     paymentTermsDays: values.paymentTermsDays,
     timeZone: optional(values.timeZone),
+    brandColor: optional(values.brandColor),
+    invoiceFooterNote: optional(values.invoiceFooterNote),
   };
 }

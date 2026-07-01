@@ -370,7 +370,7 @@ BillFlow is being built in public. Planned milestones:
 |------|--------|--------|
 | 1 | Open-source foundation + toast notifications | Done |
 | 2 | Audit trail (who changed what, when) | Done |
-| 3 | Email invoice delivery + branded PDF templates | Planned |
+| 3 | Email invoice delivery + branded PDF templates | Done |
 | 4 | Customer portal (view/pay invoice via secure link) | Planned |
 | 5 | Recurring invoices + payment gateway (Stripe) | Planned |
 | 6 | Multi-currency, advanced reports, accounting export | Planned |
