@@ -1,6 +1,7 @@
 using BillFlow.Models.Dtos.Auth.Account;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Entities;
+using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
 using BillFlow.ManagementService.Services.Billing;
 
@@ -8,6 +9,7 @@ namespace BillFlow.ManagementService.Services;
 
 public sealed class ClientBillingService(
     IClientRepository clientRepository,
+    IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : IClientBillingService
 {
     public async Task<OperationResult<IReadOnlyList<ClientResponse>>> GetAllAsync(
@@ -78,6 +80,13 @@ public sealed class ClientBillingService(
         };
 
         await clientRepository.CreateAsync(client, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value.Value,
+            AuditAction.Created,
+            AuditEntityType.Client,
+            client.Id,
+            $"Client \"{client.CompanyName}\" created.",
+            cancellationToken);
         return OperationResult<ClientResponse>.Ok(Map(client), StatusCodes.Status201Created);
     }
 
@@ -123,6 +132,13 @@ public sealed class ClientBillingService(
         client.IsActive = request.IsActive;
 
         await clientRepository.UpdateAsync(client, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value.Value,
+            AuditAction.Updated,
+            AuditEntityType.Client,
+            client.Id,
+            $"Client \"{client.CompanyName}\" updated.",
+            cancellationToken);
         return OperationResult<ClientResponse>.Ok(Map(client));
     }
 
@@ -146,6 +162,13 @@ public sealed class ClientBillingService(
         }
 
         await clientRepository.SoftDeleteAsync(ownerId.Value.Value, id, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value.Value,
+            AuditAction.Deleted,
+            AuditEntityType.Client,
+            client.Id,
+            $"Client \"{client.CompanyName}\" deleted.",
+            cancellationToken);
         return OperationResult<MessageResponse>.Ok(new MessageResponse
         {
             Message = "Client deleted successfully.",

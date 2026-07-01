@@ -1,5 +1,6 @@
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Entities;
+using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
 using BillFlow.ManagementService.Services.Billing;
 
@@ -7,6 +8,7 @@ namespace BillFlow.ManagementService.Services;
 
 public sealed class CompanySettingsBillingService(
     ICompanySettingsRepository companySettingsRepository,
+    IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : ICompanySettingsBillingService
 {
     public async Task<OperationResult<CompanySettingsResponse>> GetAsync(
@@ -67,6 +69,13 @@ public sealed class CompanySettingsBillingService(
         };
 
         var saved = await companySettingsRepository.UpsertAsync(settings, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value!.Value,
+            AuditAction.SettingsUpdated,
+            AuditEntityType.CompanySettings,
+            saved.OwnerId,
+            $"Company settings updated for \"{saved.CompanyName}\".",
+            cancellationToken);
         return OperationResult<CompanySettingsResponse>.Ok(Map(saved), StatusCodes.Status200OK);
     }
 

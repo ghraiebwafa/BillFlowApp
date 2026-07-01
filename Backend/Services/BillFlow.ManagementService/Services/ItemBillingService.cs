@@ -1,6 +1,7 @@
 using BillFlow.Models.Dtos.Auth.Account;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Entities;
+using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
 using BillFlow.ManagementService.Services.Billing;
 
@@ -8,6 +9,7 @@ namespace BillFlow.ManagementService.Services;
 
 public sealed class ItemBillingService(
     IItemRepository itemRepository,
+    IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : IItemBillingService
 {
     public async Task<OperationResult<IReadOnlyList<ItemResponse>>> GetAllAsync(
@@ -73,6 +75,13 @@ public sealed class ItemBillingService(
         };
 
         await itemRepository.CreateAsync(item, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value!.Value,
+            AuditAction.Created,
+            AuditEntityType.Item,
+            item.Id,
+            $"Item \"{item.Name}\" created.",
+            cancellationToken);
         return OperationResult<ItemResponse>.Ok(Map(item), StatusCodes.Status201Created);
     }
 
@@ -113,6 +122,13 @@ public sealed class ItemBillingService(
         item.IsActive = request.IsActive;
 
         await itemRepository.UpdateAsync(item, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value!.Value,
+            AuditAction.Updated,
+            AuditEntityType.Item,
+            item.Id,
+            $"Item \"{item.Name}\" updated.",
+            cancellationToken);
         return OperationResult<ItemResponse>.Ok(Map(item));
     }
 
@@ -137,6 +153,13 @@ public sealed class ItemBillingService(
         }
 
         await itemRepository.ArchiveAsync(ownerId.Value.Value, id, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value.Value,
+            AuditAction.Archived,
+            AuditEntityType.Item,
+            item.Id,
+            $"Item \"{item.Name}\" archived.",
+            cancellationToken);
         return OperationResult<MessageResponse>.Ok(new MessageResponse
         {
             Message = "Item archived successfully.",
@@ -163,6 +186,13 @@ public sealed class ItemBillingService(
         }
 
         await itemRepository.SoftDeleteAsync(ownerId.Value.Value, id, cancellationToken);
+        await auditTrail.LogAsync(
+            ownerId.Value.Value,
+            AuditAction.Deleted,
+            AuditEntityType.Item,
+            item.Id,
+            $"Item \"{item.Name}\" deleted.",
+            cancellationToken);
         return OperationResult<MessageResponse>.Ok(new MessageResponse
         {
             Message = "Item deleted successfully.",

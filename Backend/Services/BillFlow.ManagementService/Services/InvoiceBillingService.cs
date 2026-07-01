@@ -15,6 +15,7 @@ public sealed class InvoiceBillingService(
     IPaymentRepository paymentRepository,
     ICompanySettingsRepository companySettingsRepository,
     IInvoicePdfGenerator invoicePdfGenerator,
+    IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : IInvoiceBillingService
 {
     private const int MaxInvoiceNumberRetries = 5;
@@ -138,6 +139,14 @@ public sealed class InvoiceBillingService(
                     includeDetails: true,
                     cancellationToken);
 
+                await auditTrail.LogAsync(
+                    owner,
+                    AuditAction.Created,
+                    AuditEntityType.Invoice,
+                    invoice.Id,
+                    $"Invoice {invoice.InvoiceNumber} created.",
+                    cancellationToken);
+
                 return OperationResult<InvoiceDetailResponse>.Ok(
                     MapDetail(created!),
                     StatusCodes.Status201Created);
@@ -217,6 +226,14 @@ public sealed class InvoiceBillingService(
             includeDetails: true,
             cancellationToken);
 
+        await auditTrail.LogAsync(
+            owner,
+            AuditAction.Updated,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Invoice {invoice.InvoiceNumber} updated.",
+            cancellationToken);
+
         return OperationResult<InvoiceDetailResponse>.Ok(MapDetail(updated!));
     }
 
@@ -283,6 +300,13 @@ public sealed class InvoiceBillingService(
         }
 
         await invoiceRepository.SoftDeleteAsync(owner, id, cancellationToken);
+        await auditTrail.LogAsync(
+            owner,
+            AuditAction.Deleted,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Invoice {invoice.InvoiceNumber} deleted.",
+            cancellationToken);
         return OperationResult<MessageResponse>.Ok(new MessageResponse
         {
             Message = "Invoice deleted successfully.",
@@ -302,6 +326,7 @@ public sealed class InvoiceBillingService(
             id,
             InvoiceStatusRules.CanSend,
             InvoiceStatus.Sent,
+            AuditAction.Sent,
             "Only draft invoices can be sent.",
             cancellationToken);
     }
@@ -369,6 +394,14 @@ public sealed class InvoiceBillingService(
             includeDetails: true,
             cancellationToken);
 
+        await auditTrail.LogAsync(
+            owner,
+            AuditAction.Paid,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Invoice {invoice.InvoiceNumber} marked as paid.",
+            cancellationToken);
+
         return OperationResult<InvoiceDetailResponse>.Ok(MapDetail(updated!));
     }
 
@@ -385,6 +418,7 @@ public sealed class InvoiceBillingService(
             id,
             InvoiceStatusRules.CanCancel,
             InvoiceStatus.Cancelled,
+            AuditAction.Cancelled,
             "Only draft or sent invoices can be cancelled.",
             cancellationToken);
     }
@@ -446,6 +480,7 @@ public sealed class InvoiceBillingService(
         Guid invoiceId,
         Func<InvoiceStatus, bool> canTransition,
         InvoiceStatus newStatus,
+        AuditAction auditAction,
         string invalidMessage,
         CancellationToken cancellationToken)
     {
@@ -467,6 +502,14 @@ public sealed class InvoiceBillingService(
 
         invoice.Status = newStatus;
         await invoiceRepository.UpdateAsync(invoice, cancellationToken);
+
+        await auditTrail.LogAsync(
+            ownerId,
+            auditAction,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Invoice {invoice.InvoiceNumber} {auditAction.ToString().ToLowerInvariant()}.",
+            cancellationToken);
 
         return OperationResult<InvoiceDetailResponse>.Ok(MapDetail(invoice));
     }

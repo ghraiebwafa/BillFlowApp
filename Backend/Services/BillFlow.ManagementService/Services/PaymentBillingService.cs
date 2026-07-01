@@ -10,6 +10,7 @@ namespace BillFlow.ManagementService.Services;
 public sealed class PaymentBillingService(
     IPaymentRepository paymentRepository,
     IInvoiceRepository invoiceRepository,
+    IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : IPaymentBillingService
 {
     private const int MaxFuturePaymentDays = 1;
@@ -101,6 +102,14 @@ public sealed class PaymentBillingService(
                 StatusCodes.Status400BadRequest);
         }
 
+        await auditTrail.LogAsync(
+            owner,
+            AuditAction.PaymentRecorded,
+            AuditEntityType.Payment,
+            payment.Id,
+            $"Payment of {payment.Amount:C} recorded for invoice {payment.Invoice.InvoiceNumber}.",
+            cancellationToken);
+
         return OperationResult<PaymentResponse>.Ok(Map(payment), StatusCodes.Status201Created);
     }
 
@@ -117,6 +126,7 @@ public sealed class PaymentBillingService(
             id,
             PaymentStatus.Completed,
             PaymentStatus.Refunded,
+            AuditAction.Refunded,
             "Only completed payments can be refunded.",
             cancellationToken);
     }
@@ -134,6 +144,7 @@ public sealed class PaymentBillingService(
             id,
             PaymentStatus.Completed,
             PaymentStatus.Cancelled,
+            AuditAction.Cancelled,
             "Only completed payments can be cancelled.",
             cancellationToken);
     }
@@ -143,6 +154,7 @@ public sealed class PaymentBillingService(
         Guid paymentId,
         PaymentStatus requiredStatus,
         PaymentStatus newStatus,
+        AuditAction auditAction,
         string invalidMessage,
         CancellationToken cancellationToken)
     {
@@ -167,6 +179,14 @@ public sealed class PaymentBillingService(
                 invalidMessage,
                 StatusCodes.Status400BadRequest);
         }
+
+        await auditTrail.LogAsync(
+            ownerId,
+            auditAction,
+            AuditEntityType.Payment,
+            payment.Id,
+            $"Payment for invoice {payment.Invoice.InvoiceNumber} {auditAction.ToString().ToLowerInvariant()}.",
+            cancellationToken);
 
         return OperationResult<PaymentResponse>.Ok(Map(payment));
     }
