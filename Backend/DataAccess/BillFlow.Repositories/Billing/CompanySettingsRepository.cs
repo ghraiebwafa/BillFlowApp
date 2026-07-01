@@ -37,6 +37,8 @@ public sealed class CompanySettingsRepository(BillFlowDbContext db) : ICompanySe
             existing.DefaultTaxRate = settings.DefaultTaxRate;
             existing.PaymentTermsDays = settings.PaymentTermsDays;
             existing.TimeZone = settings.TimeZone;
+            existing.BrandColor = settings.BrandColor;
+            existing.InvoiceFooterNote = settings.InvoiceFooterNote;
             existing.UpdatedAt = DateTime.UtcNow;
             settings = existing;
         }

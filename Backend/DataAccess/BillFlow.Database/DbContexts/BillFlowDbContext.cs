@@ -279,6 +279,12 @@ public class BillFlowDbContext : DbContext
             entity.Property(x => x.TimeZone)
                 .HasMaxLength(100);
 
+            entity.Property(x => x.BrandColor)
+                .HasMaxLength(7);
+
+            entity.Property(x => x.InvoiceFooterNote)
+                .HasMaxLength(500);
+
             entity.HasOne(x => x.Owner)
                 .WithOne(x => x.CompanySettings)
                 .HasForeignKey<CompanySettings>(x => x.OwnerId)

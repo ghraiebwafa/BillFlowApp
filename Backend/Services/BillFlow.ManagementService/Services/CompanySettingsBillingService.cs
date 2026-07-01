@@ -66,6 +66,8 @@ public sealed class CompanySettingsBillingService(
             DefaultTaxRate = request.DefaultTaxRate,
             PaymentTermsDays = request.PaymentTermsDays,
             TimeZone = request.TimeZone?.Trim(),
+            BrandColor = NormalizeBrandColor(request.BrandColor),
+            InvoiceFooterNote = request.InvoiceFooterNote?.Trim(),
         };
 
         var saved = await companySettingsRepository.UpsertAsync(settings, cancellationToken);
@@ -92,7 +94,21 @@ public sealed class CompanySettingsBillingService(
         DefaultTaxRate = settings.DefaultTaxRate,
         PaymentTermsDays = settings.PaymentTermsDays,
         TimeZone = settings.TimeZone,
+        BrandColor = settings.BrandColor,
+        InvoiceFooterNote = settings.InvoiceFooterNote,
         CreatedAt = settings.CreatedAt,
         UpdatedAt = settings.UpdatedAt,
     };
+
+    private static string? NormalizeBrandColor(string? brandColor)
+    {
+        if (string.IsNullOrWhiteSpace(brandColor))
+            return null;
+
+        var value = brandColor.Trim();
+        if (!value.StartsWith('#'))
+            value = $"#{value}";
+
+        return value.Length == 7 ? value.ToUpperInvariant() : null;
+    }
 }

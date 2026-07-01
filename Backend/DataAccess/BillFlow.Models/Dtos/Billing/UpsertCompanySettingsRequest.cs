@@ -40,4 +40,11 @@ public class UpsertCompanySettingsRequest
 
     [MaxLength(100)]
     public string? TimeZone { get; set; }
+
+    [RegularExpression(@"^#?[0-9A-Fa-f]{6}$")]
+    [MaxLength(7)]
+    public string? BrandColor { get; set; }
+
+    [MaxLength(500)]
+    public string? InvoiceFooterNote { get; set; }
 }

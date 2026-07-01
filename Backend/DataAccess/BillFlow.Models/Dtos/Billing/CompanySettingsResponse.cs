@@ -24,6 +24,10 @@ public class CompanySettingsResponse
 
     public string? TimeZone { get; set; }
 
+    public string? BrandColor { get; set; }
+
+    public string? InvoiceFooterNote { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }

@@ -28,6 +28,10 @@ public class CompanySettings
 
     public string? TimeZone { get; set; }
 
+    public string? BrandColor { get; set; }
+
+    public string? InvoiceFooterNote { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }
