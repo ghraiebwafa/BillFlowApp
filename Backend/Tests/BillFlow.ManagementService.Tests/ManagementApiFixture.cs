@@ -34,6 +34,28 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         .WithImage("redis:7-alpine")
         .WithCommand("redis-server", "--requirepass", RedisPassword)
         .Build();
+    private readonly Dictionary<string, string?> _originalEnvironment = new();
+    private static readonly string[] ManagedEnvironmentKeys =
+    [
+        "JWT_SECRET",
+        "JWT_ISSUER",
+        "JWT_AUDIENCE",
+        "REFRESH_TOKEN_PEPPER",
+        "APPLY_MIGRATIONS",
+        "ALLOW_DEV_RESET_PASSWORD",
+        "DISABLE_RATE_LIMITING",
+        "DB_HOST",
+        "DB_PORT",
+        "DB_NAME",
+        "DB_USER",
+        "DB_PASSWORD",
+        "REDIS_HOST",
+        "REDIS_PORT",
+        "REDIS_PASSWORD",
+        "SUPERADMIN_EMAIL",
+        "SUPERADMIN_PASSWORD",
+        "SUPERADMIN_FULL_NAME",
+    ];
 
     public WebApplicationFactory<Program> ManagementFactory { get; private set; } = null!;
     public WebApplicationFactory<Auth::Program> AuthFactory { get; private set; } = null!;
@@ -44,6 +66,7 @@ public sealed class ManagementApiFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        CaptureOriginalEnvironment();
         await _postgres.StartAsync();
         await _redis.StartAsync();
 
@@ -78,6 +101,7 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         await ManagementFactory.DisposeAsync();
         await _redis.DisposeAsync();
         await _postgres.DisposeAsync();
+        RestoreOriginalEnvironment();
     }
 
     private void ConfigureSharedEnvironment()
@@ -103,6 +127,22 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         Environment.SetEnvironmentVariable("SUPERADMIN_EMAIL", SuperAdminEmail);
         Environment.SetEnvironmentVariable("SUPERADMIN_PASSWORD", SuperAdminPassword);
         Environment.SetEnvironmentVariable("SUPERADMIN_FULL_NAME", "Integration Super Admin");
+    }
+
+    private void CaptureOriginalEnvironment()
+    {
+        foreach (var key in ManagedEnvironmentKeys)
+        {
+            _originalEnvironment[key] = Environment.GetEnvironmentVariable(key);
+        }
+    }
+
+    private void RestoreOriginalEnvironment()
+    {
+        foreach (var entry in _originalEnvironment)
+        {
+            Environment.SetEnvironmentVariable(entry.Key, entry.Value);
+        }
     }
 
     private async Task ApplyMigrationsAsync()
