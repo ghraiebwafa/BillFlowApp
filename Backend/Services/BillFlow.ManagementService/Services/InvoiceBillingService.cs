@@ -4,6 +4,7 @@ using BillFlow.Models.Entities;
 using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
 using BillFlow.ManagementService.Services.Billing;
+using BillFlow.Shared.Email;
 using Microsoft.EntityFrameworkCore;
 
 namespace BillFlow.ManagementService.Services;
@@ -15,6 +16,8 @@ public sealed class InvoiceBillingService(
     IPaymentRepository paymentRepository,
     ICompanySettingsRepository companySettingsRepository,
     IInvoicePdfGenerator invoicePdfGenerator,
+    IInvoiceEmailComposer invoiceEmailComposer,
+    IEmailSender emailSender,
     IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : IInvoiceBillingService
 {
@@ -321,14 +324,63 @@ public sealed class InvoiceBillingService(
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        return await ChangeStatusAsync(
-            ownerId.Value!.Value,
+        var owner = ownerId.Value!.Value;
+
+        var result = await ChangeStatusAsync(
+            owner,
             id,
             InvoiceStatusRules.CanSend,
             InvoiceStatus.Sent,
             AuditAction.Sent,
             "Only draft invoices can be sent.",
             cancellationToken);
+
+        if (!result.IsSuccess)
+            return result;
+
+        await DeliverInvoiceEmailAsync(owner, id, cancellationToken);
+        return result;
+    }
+
+    public async Task<OperationResult<MessageResponse>> EmailInvoiceAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<MessageResponse>(currentUser);
+        if (ownerId.Error is not null)
+            return ownerId.Error;
+
+        var owner = ownerId.Value!.Value;
+        var invoice = await invoiceRepository.GetByIdAsync(
+            owner,
+            id,
+            includeDetails: true,
+            cancellationToken);
+
+        if (invoice is null)
+            return NotFound<MessageResponse>();
+
+        if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled)
+        {
+            return OperationResult<MessageResponse>.Fail(
+                "Only sent or payable invoices can be emailed.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        var delivery = await DeliverInvoiceEmailAsync(owner, id, cancellationToken);
+        if (!delivery.Success)
+        {
+            return OperationResult<MessageResponse>.Fail(
+                delivery.Detail ?? "Unable to send invoice email.",
+                StatusCodes.Status502BadGateway);
+        }
+
+        return OperationResult<MessageResponse>.Ok(new MessageResponse
+        {
+            Message = delivery.Skipped
+                ? "SMTP is not configured. Configure SMTP_HOST to email invoices to clients."
+                : "Invoice emailed to the client successfully.",
+        });
     }
 
     public async Task<OperationResult<InvoiceDetailResponse>> MarkPaidAsync(
@@ -601,6 +653,49 @@ public sealed class InvoiceBillingService(
 
     private static OperationResult<T> NotFound<T>() =>
         OperationResult<T>.Fail("Invoice not found.", StatusCodes.Status404NotFound);
+
+    private async Task<EmailSendResult> DeliverInvoiceEmailAsync(
+        Guid ownerId,
+        Guid invoiceId,
+        CancellationToken cancellationToken)
+    {
+        var invoice = await invoiceRepository.GetByIdAsync(
+            ownerId,
+            invoiceId,
+            includeDetails: true,
+            cancellationToken);
+
+        if (invoice is null)
+        {
+            return new EmailSendResult(
+                false,
+                Skipped: true,
+                Detail: "Invoice not found.");
+        }
+
+        var detail = MapDetail(invoice);
+        var companySettings = await companySettingsRepository.GetByOwnerAsync(ownerId, cancellationToken);
+        var issuer = companySettings is null
+            ? null
+            : CompanySettingsBillingService.Map(companySettings);
+
+        var pdf = invoicePdfGenerator.Generate(detail, issuer);
+        var message = invoiceEmailComposer.Compose(detail, issuer, pdf);
+        var result = await emailSender.SendAsync(message, cancellationToken);
+
+        if (result.Success && !result.Skipped)
+        {
+            await auditTrail.LogAsync(
+                ownerId,
+                AuditAction.EmailSent,
+                AuditEntityType.Invoice,
+                invoice.Id,
+                $"Invoice {invoice.InvoiceNumber} emailed to {invoice.Client.Email}.",
+                cancellationToken);
+        }
+
+        return result;
+    }
 
     private static string SanitizeFileName(string invoiceNumber)
     {

@@ -5,6 +5,7 @@ using BillFlow.ManagementService.Services;
 using BillFlow.ManagementService.Services.Billing;
 using BillFlow.Repositories;
 using BillFlow.Shared.Configuration;
+using BillFlow.Shared.Email;
 using BillFlow.Shared.Extensions;
 using BillFlow.Shared.Middleware;
 using DotNetEnv;
@@ -48,6 +49,7 @@ public class Startup
 
         var redisOptions = RedisOptions.FromEnvironment();
         services.AddBillFlowRedis(redisOptions);
+        services.AddBillFlowEmail();
         services.AddBillFlowJwtAuthentication(
             jwtOptions,
             requireHttpsMetadata: !_environment.IsDevelopment(),
@@ -65,6 +67,7 @@ public class Startup
         services.AddScoped<IItemBillingService, ItemBillingService>();
         services.AddScoped<IInvoiceBillingService, InvoiceBillingService>();
         services.AddSingleton<IInvoicePdfGenerator, InvoicePdfGenerator>();
+        services.AddSingleton<IInvoiceEmailComposer, InvoiceEmailComposer>();
         services.AddScoped<IPaymentBillingService, PaymentBillingService>();
         services.AddScoped<IDashboardBillingService, DashboardBillingService>();
         services.AddScoped<IReportsBillingService, ReportsBillingService>();

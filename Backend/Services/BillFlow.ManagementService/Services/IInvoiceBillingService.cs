@@ -36,6 +36,10 @@ public interface IInvoiceBillingService
         Guid id,
         CancellationToken cancellationToken = default);
 
+    Task<OperationResult<MessageResponse>> EmailInvoiceAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
+
     Task<OperationResult<InvoiceDetailResponse>> MarkPaidAsync(
         Guid id,
         CancellationToken cancellationToken = default);

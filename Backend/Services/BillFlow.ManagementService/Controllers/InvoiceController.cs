@@ -59,6 +59,11 @@ public class InvoiceController(IInvoiceBillingService invoiceService) : Controll
         invoiceService.SendAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
+    [HttpPost("Email/{id:guid}")]
+    public Task<IActionResult> Email(Guid id, CancellationToken cancellationToken) =>
+        invoiceService.EmailInvoiceAsync(id, cancellationToken).ToBillingActionResult();
+
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("MarkPaid/{id:guid}")]
     public Task<IActionResult> MarkPaid(Guid id, CancellationToken cancellationToken) =>
         invoiceService.MarkPaidAsync(id, cancellationToken).ToBillingActionResult();
