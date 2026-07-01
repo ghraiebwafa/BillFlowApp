@@ -113,6 +113,7 @@ export const en = {
   profile: {
     title: "Profile",
     companySettings: "Company Settings",
+    activity: "Activity Log",
     myProfile: "My Profile",
     changePassword: "Change Password",
     preferences: "Preferences",
@@ -193,6 +194,12 @@ export const en = {
       outstanding: { title: "Outstanding Report", desc: "Unpaid and overdue invoice balances." },
       taxes: { title: "Tax Report", desc: "Tax collected across your invoices." },
     },
+  },
+  activity: {
+    title: "Activity Log",
+    subtitle: "Recent changes across your billing data.",
+    loadError: "Unable to load activity.",
+    empty: "No activity yet. Create a client or invoice to get started.",
   },
   settings: {
     title: "Company Settings",

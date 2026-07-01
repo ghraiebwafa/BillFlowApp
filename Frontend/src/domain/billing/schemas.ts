@@ -68,3 +68,14 @@ export const persistedSessionSchema = z.object({
   accessTokenExpiresAt: z.string(),
   user: userProfileSchema,
 });
+
+export const auditEventSchema = z.object({
+  id: z.string().uuid(),
+  actorUserId: z.string().uuid(),
+  actorDisplayName: z.string(),
+  entityType: z.number().int(),
+  entityId: z.string().uuid(),
+  action: z.number().int(),
+  summary: z.string(),
+  createdAt: z.string(),
+});

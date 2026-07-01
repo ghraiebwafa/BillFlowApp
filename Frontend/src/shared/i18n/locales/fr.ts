@@ -113,6 +113,7 @@ export const fr = {
   profile: {
     title: "Profil",
     companySettings: "Parametres societe",
+    activity: "Journal d'activite",
     myProfile: "Mon profil",
     changePassword: "Changer le mot de passe",
     preferences: "Preferences",
@@ -184,6 +185,12 @@ export const fr = {
       outstanding: { title: "Rapport des impayes", desc: "Soldes impayes et en retard." },
       taxes: { title: "Rapport fiscal", desc: "Taxes collectees sur vos factures." },
     },
+  },
+  activity: {
+    title: "Journal d'activite",
+    subtitle: "Modifications recentes sur vos donnees de facturation.",
+    loadError: "Impossible de charger l'activite.",
+    empty: "Aucune activite pour le moment. Creez un client ou une facture pour commencer.",
   },
   settings: {
     title: "Parametres Societe",

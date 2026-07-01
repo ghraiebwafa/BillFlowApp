@@ -919,3 +919,13 @@ html[data-theme="dark"] .welcome-splash-tagline {
     transform: translateX(0);
   }
 }
+
+.activity-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: var(--billflow-orange-light);
+}

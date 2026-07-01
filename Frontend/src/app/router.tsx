@@ -13,6 +13,7 @@ import { InvoiceDetailPage } from "../features/invoices/pages/InvoiceDetailPage"
 import { CreateInvoicePage } from "../features/invoices/pages/CreateInvoicePage";
 import { PaymentsPage } from "../features/payments/pages/PaymentsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
+import { ActivityPage } from "../features/activity/pages/ActivityPage";
 import { ComingSoonPage } from "../shared/ui/ComingSoonPage";
 import {
   GuestOnly,
@@ -46,6 +47,7 @@ export function AppRouter() {
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/activity" element={<ActivityPage />} />
             <Route
               path="/items"
               element={<ComingSoonPage titleKey="nav.items" subtitleKey="dashboard.modules.items.desc" />}

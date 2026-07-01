@@ -5,6 +5,7 @@ import {
   Building2,
   ChevronRight,
   Globe,
+  History,
   KeyRound,
   LogOut,
   SlidersHorizontal,
@@ -37,6 +38,7 @@ export function ProfilePage() {
     disabled?: boolean;
   }> = [
     { to: "/settings/company", labelKey: "profile.companySettings", icon: Building2 },
+    { to: "/activity", labelKey: "profile.activity", icon: History },
     { to: null, labelKey: "profile.myProfile", icon: User, disabled: true },
     { to: null, labelKey: "profile.changePassword", icon: KeyRound, disabled: true },
     { to: null, labelKey: "profile.preferences", icon: SlidersHorizontal, disabled: true },
