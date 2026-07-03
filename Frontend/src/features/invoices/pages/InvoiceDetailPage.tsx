@@ -1,6 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Mail, Send } from "lucide-react";
+import { Download, Link2, Mail, Send, Unlink } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
@@ -17,6 +17,12 @@ import type { PaymentRecord } from "../../../domain/billing/payment";
 import { paymentMethodLabel, PaymentStatus } from "../../../domain/billing/payment";
 import { invoiceDetailSchema, paymentRecordSchema } from "../../../domain/billing/schemas";
 import { toast } from "../../../shared/ui/toast-store";
+
+const shareLinkSchema = z.object({
+  token: z.string(),
+  url: z.string(),
+  expiresAt: z.string().nullable().optional(),
+});
 
 function formatMoney(amount: number): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
@@ -97,6 +103,38 @@ export function InvoiceDetailPage() {
         skipped ? t("invoices.emailSkipped") : t("toast.invoiceEmailed"),
         skipped ? "info" : "success",
       );
+    },
+    onError: (err) => {
+      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<{ token: string; url: string }>(`/api/v1.0/billing/Invoice/ShareLink/${id}`, {
+        method: "POST",
+        schema: shareLinkSchema,
+      }),
+    onSuccess: (data) => {
+      const portalUrl = `${window.location.origin}/portal/${data.token}`;
+      void navigator.clipboard.writeText(portalUrl);
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast(t("invoices.shareLinkCopied"), "success");
+    },
+    onError: (err) => {
+      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<{ message: string }>(`/api/v1.0/billing/Invoice/ShareLink/${id}`, {
+        method: "DELETE",
+        schema: z.object({ message: z.string() }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast(t("invoices.shareLinkRevoked"), "success");
     },
     onError: (err) => {
       toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
@@ -237,6 +275,29 @@ export function InvoiceDetailPage() {
                 <Download className="h-4 w-4" />
                 {t("invoices.downloadPdf")}
               </button>
+            ) : null}
+
+            {invoice.status !== InvoiceStatus.Draft && invoice.status !== InvoiceStatus.Cancelled ? (
+              <>
+                <button
+                  className="btn-secondary flex flex-1 items-center justify-center gap-2"
+                  disabled={shareMutation.isPending}
+                  onClick={() => void shareMutation.mutate()}
+                  type="button"
+                >
+                  <Link2 className="h-4 w-4" />
+                  {shareMutation.isPending ? t("app.loading") : t("invoices.shareLink")}
+                </button>
+                <button
+                  className="btn-ghost flex flex-1 items-center justify-center gap-2 text-sm"
+                  disabled={revokeMutation.isPending}
+                  onClick={() => void revokeMutation.mutate()}
+                  type="button"
+                >
+                  <Unlink className="h-4 w-4" />
+                  {revokeMutation.isPending ? t("app.loading") : t("invoices.revokeLink")}
+                </button>
+              </>
             ) : null}
           </div>
 

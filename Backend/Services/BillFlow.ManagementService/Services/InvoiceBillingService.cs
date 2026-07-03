@@ -15,6 +15,7 @@ public sealed class InvoiceBillingService(
     IItemRepository itemRepository,
     IPaymentRepository paymentRepository,
     ICompanySettingsRepository companySettingsRepository,
+    IInvoiceShareTokenRepository shareTokenRepository,
     IInvoicePdfGenerator invoicePdfGenerator,
     IInvoiceEmailComposer invoiceEmailComposer,
     IEmailSender emailSender,
@@ -525,6 +526,106 @@ public sealed class InvoiceBillingService(
             Content = content,
             FileName = $"{SanitizeFileName(detail.InvoiceNumber)}.pdf",
         });
+    }
+
+    public async Task<OperationResult<ShareLinkResponse>> GenerateShareLinkAsync(
+        Guid id,
+        string portalBaseUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<ShareLinkResponse>(currentUser);
+        if (ownerId.Error is not null)
+            return ownerId.Error;
+
+        var owner = ownerId.Value!.Value;
+        var invoice = await invoiceRepository.GetByIdAsync(owner, id, cancellationToken: cancellationToken);
+        if (invoice is null)
+        {
+            return OperationResult<ShareLinkResponse>.Fail(
+                "Invoice not found.",
+                StatusCodes.Status404NotFound);
+        }
+
+        if (invoice.Status == InvoiceStatus.Draft)
+        {
+            return OperationResult<ShareLinkResponse>.Fail(
+                "Send the invoice before sharing it with a client.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        var existing = await shareTokenRepository.GetActiveByInvoiceIdAsync(id, cancellationToken);
+        if (existing is not null)
+        {
+            return OperationResult<ShareLinkResponse>.Ok(new ShareLinkResponse
+            {
+                Token = existing.Token,
+                Url = $"{portalBaseUrl.TrimEnd('/')}/portal/{existing.Token}",
+                ExpiresAt = existing.ExpiresAt,
+            });
+        }
+
+        var token = GenerateSecureToken();
+        var shareToken = new Models.Entities.InvoiceShareToken
+        {
+            Id = Guid.NewGuid(),
+            InvoiceId = id,
+            Token = token,
+        };
+
+        await shareTokenRepository.CreateAsync(shareToken, cancellationToken);
+
+        await auditTrail.LogAsync(
+            owner,
+            AuditAction.ShareLinkCreated,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Share link created for invoice {invoice.InvoiceNumber}.",
+            cancellationToken);
+
+        return OperationResult<ShareLinkResponse>.Ok(new ShareLinkResponse
+        {
+            Token = token,
+            Url = $"{portalBaseUrl.TrimEnd('/')}/portal/{token}",
+            ExpiresAt = shareToken.ExpiresAt,
+        }, StatusCodes.Status201Created);
+    }
+
+    public async Task<OperationResult<MessageResponse>> RevokeShareLinkAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<MessageResponse>(currentUser);
+        if (ownerId.Error is not null)
+            return ownerId.Error;
+
+        var owner = ownerId.Value!.Value;
+        var invoice = await invoiceRepository.GetByIdAsync(owner, id, cancellationToken: cancellationToken);
+        if (invoice is null)
+            return NotFound<MessageResponse>();
+
+        await shareTokenRepository.RevokeByInvoiceIdAsync(id, cancellationToken);
+
+        await auditTrail.LogAsync(
+            owner,
+            AuditAction.ShareLinkRevoked,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Share link revoked for invoice {invoice.InvoiceNumber}.",
+            cancellationToken);
+
+        return OperationResult<MessageResponse>.Ok(new MessageResponse
+        {
+            Message = "Share link revoked successfully.",
+        });
+    }
+
+    private static string GenerateSecureToken()
+    {
+        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        return Convert.ToBase64String(bytes)
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .TrimEnd('=');
     }
 
     private async Task<OperationResult<InvoiceDetailResponse>> ChangeStatusAsync(

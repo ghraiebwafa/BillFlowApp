@@ -15,6 +15,7 @@ import { PaymentsPage } from "../features/payments/pages/PaymentsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { ActivityPage } from "../features/activity/pages/ActivityPage";
 import { ComingSoonPage } from "../shared/ui/ComingSoonPage";
+import { PortalPage } from "../features/portal/pages/PortalPage";
 import {
   GuestOnly,
   HomeRedirect,
@@ -59,6 +60,7 @@ export function AppRouter() {
           </Route>
         </Route>
 
+        <Route path="/portal/:token" element={<PortalPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

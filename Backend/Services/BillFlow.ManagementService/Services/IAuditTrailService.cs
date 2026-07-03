@@ -13,6 +13,14 @@ public interface IAuditTrailService
         string summary,
         CancellationToken cancellationToken = default);
 
+    Task LogAnonymousAsync(
+        Guid ownerId,
+        AuditAction action,
+        AuditEntityType entityType,
+        Guid entityId,
+        string summary,
+        CancellationToken cancellationToken = default);
+
     Task<OperationResult<IReadOnlyList<AuditEventResponse>>> GetRecentAsync(
         int limit = 50,
         CancellationToken cancellationToken = default);

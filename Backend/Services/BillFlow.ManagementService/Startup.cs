@@ -73,6 +73,7 @@ public class Startup
         services.AddScoped<IReportsBillingService, ReportsBillingService>();
         services.AddScoped<ICompanySettingsBillingService, CompanySettingsBillingService>();
         services.AddScoped<IAuditTrailService, AuditTrailService>();
+        services.AddScoped<IPortalService, PortalService>();
         services.AddScoped<SuperAdminSeeder>();
         services.AddHostedService<SuperAdminSeederHostedService>();
     }

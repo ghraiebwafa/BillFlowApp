@@ -19,6 +19,7 @@ public class BillFlowDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<InvoiceShareToken> InvoiceShareTokens => Set<InvoiceShareToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -195,6 +196,11 @@ public class BillFlowDbContext : DbContext
                 .WithOne(x => x.Invoice)
                 .HasForeignKey(x => x.InvoiceId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(x => x.ShareTokens)
+                .WithOne(x => x.Invoice)
+                .HasForeignKey(x => x.InvoiceId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<InvoiceLineItem>(entity =>
@@ -289,6 +295,20 @@ public class BillFlowDbContext : DbContext
                 .WithOne(x => x.CompanySettings)
                 .HasForeignKey<CompanySettings>(x => x.OwnerId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<InvoiceShareToken>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.HasIndex(x => x.Token)
+                .IsUnique();
+
+            entity.HasIndex(x => x.InvoiceId);
+
+            entity.Property(x => x.Token)
+                .HasMaxLength(64)
+                .IsRequired();
         });
 
         modelBuilder.Entity<AuditEvent>(entity =>

@@ -77,4 +77,17 @@ public class InvoiceController(IInvoiceBillingService invoiceService) : Controll
     [HttpGet("DownloadPdf/{id:guid}")]
     public Task<IActionResult> DownloadPdf(Guid id, CancellationToken cancellationToken) =>
         this.ToBillingPdfResult(invoiceService.DownloadPdfAsync(id, cancellationToken));
+
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
+    [HttpPost("ShareLink/{id:guid}")]
+    public Task<IActionResult> GenerateShareLink(Guid id, CancellationToken cancellationToken)
+    {
+        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        return invoiceService.GenerateShareLinkAsync(id, baseUrl, cancellationToken).ToBillingActionResult();
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
+    [HttpDelete("ShareLink/{id:guid}")]
+    public Task<IActionResult> RevokeShareLink(Guid id, CancellationToken cancellationToken) =>
+        invoiceService.RevokeShareLinkAsync(id, cancellationToken).ToBillingActionResult();
 }

@@ -13,4 +13,7 @@ public enum AuditAction
     Archived = 9,
     SettingsUpdated = 10,
     EmailSent = 11,
+    ShareLinkCreated = 12,
+    ShareLinkRevoked = 13,
+    PortalViewed = 14,
 }

@@ -50,6 +50,36 @@ public sealed class AuditTrailService(
         }
     }
 
+    public async Task LogAnonymousAsync(
+        Guid ownerId,
+        AuditAction action,
+        AuditEntityType entityType,
+        Guid entityId,
+        string summary,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await auditEventRepository.RecordAsync(
+                new AuditEvent
+                {
+                    Id = Guid.NewGuid(),
+                    OwnerId = ownerId,
+                    ActorUserId = Guid.Empty,
+                    ActorDisplayName = "Customer portal",
+                    EntityType = entityType,
+                    EntityId = entityId,
+                    Action = action,
+                    Summary = summary.Trim(),
+                },
+                cancellationToken);
+        }
+        catch
+        {
+            // Audit logging must not break portal operations.
+        }
+    }
+
     public async Task<OperationResult<IReadOnlyList<AuditEventResponse>>> GetRecentAsync(
         int limit = 50,
         CancellationToken cancellationToken = default)

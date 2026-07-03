@@ -51,4 +51,13 @@ public interface IInvoiceBillingService
     Task<OperationResult<InvoicePdfFile>> DownloadPdfAsync(
         Guid id,
         CancellationToken cancellationToken = default);
+
+    Task<OperationResult<ShareLinkResponse>> GenerateShareLinkAsync(
+        Guid id,
+        string portalBaseUrl,
+        CancellationToken cancellationToken = default);
+
+    Task<OperationResult<MessageResponse>> RevokeShareLinkAsync(
+        Guid id,
+        CancellationToken cancellationToken = default);
 }

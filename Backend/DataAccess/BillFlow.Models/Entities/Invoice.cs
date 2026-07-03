@@ -41,4 +41,6 @@ public class Invoice
     public ICollection<InvoiceLineItem> LineItems { get; set; } = new List<InvoiceLineItem>();
 
     public ICollection<Payment> Payments { get; set; } = new List<Payment>();
+
+    public ICollection<InvoiceShareToken> ShareTokens { get; set; } = new List<InvoiceShareToken>();
 }

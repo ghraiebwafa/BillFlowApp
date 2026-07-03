@@ -929,3 +929,172 @@ html[data-theme="dark"] .welcome-splash-tagline {
   border-radius: 9999px;
   background: var(--billflow-orange-light);
 }
+
+/* ── Customer Portal ── */
+.portal-wrapper {
+  min-height: 100dvh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: var(--surface);
+}
+
+.portal-card {
+  width: 100%;
+  max-width: 44rem;
+  background: var(--panel);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.portal-brand-bar {
+  height: 6px;
+  width: 100%;
+}
+
+.portal-body {
+  padding: 2rem 1.75rem;
+}
+
+.portal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.portal-invoice-number {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.portal-issuer-name {
+  margin-top: 0.25rem;
+}
+
+.portal-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.portal-party-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.portal-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.portal-items {
+  margin-bottom: 1.5rem;
+}
+
+.portal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.portal-table thead th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 2px solid var(--border-muted);
+}
+
+.portal-table tbody td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.portal-totals {
+  max-width: 18rem;
+  margin-left: auto;
+  margin-bottom: 1.5rem;
+}
+
+.portal-total-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  font-size: 0.9rem;
+}
+
+.portal-total-row--grand {
+  font-weight: 700;
+  font-size: 1.1rem;
+  padding-top: 0.6rem;
+  margin-top: 0.25rem;
+  border-top: 2px solid var(--border-muted);
+}
+
+.portal-notes {
+  margin-bottom: 1.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border-radius: 0.5rem;
+}
+
+.portal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.portal-actions .btn-primary {
+  min-width: 14rem;
+}
+
+.portal-footer-note {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.portal-powered {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.portal-error-icon {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.portal-error-title {
+  text-align: center;
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .portal-body { padding: 1.25rem 1rem; }
+  .portal-parties { grid-template-columns: 1fr; gap: 1rem; }
+  .portal-dates { grid-template-columns: 1fr; }
+  .portal-table { font-size: 0.8rem; }
+  .portal-table thead th,
+  .portal-table tbody td { padding: 0.4rem 0.5rem; }
+}
