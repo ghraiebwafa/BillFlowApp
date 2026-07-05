@@ -88,12 +88,13 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(shareLink);
         Assert.False(string.IsNullOrEmpty(shareLink.Token));
 
-        // Second call returns same token (idempotent)
+        // Second call indicates link is already active (token not returned again)
         var shareResponse2 = await client.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoice.Id}", null);
         Assert.Equal(HttpStatusCode.OK, shareResponse2.StatusCode);
         var shareLink2 = await shareResponse2.Content.ReadFromJsonAsync<ShareLinkResponse>(JsonOptions);
         Assert.NotNull(shareLink2);
-        Assert.Equal(shareLink.Token, shareLink2.Token);
+        Assert.True(shareLink2.AlreadyActive);
+        Assert.Null(shareLink2.Token);
 
         // View invoice via public portal (no auth header)
         var portalClient = fixture.ManagementFactory.CreateClient();
@@ -132,7 +133,56 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(events);
         Assert.Contains(events, e => e.Action == AuditAction.ShareLinkCreated);
         Assert.Contains(events, e => e.Action == AuditAction.PortalViewed);
+        Assert.Contains(events, e => e.Action == AuditAction.PortalPdfDownloaded);
         Assert.Contains(events, e => e.Action == AuditAction.ShareLinkRevoked);
+    }
+
+    [Fact]
+    public async Task CancelledInvoice_ReturnsNotFound_OnPortal()
+    {
+        var token = await RegisterAndLoginVisitorAsync();
+        var client = CreateManagementClient(token);
+
+        var billingClient = await client.PostAsJsonAsync(
+            "/api/v1.0/billing/Client/Create",
+            new CreateClientRequest
+            {
+                CompanyName = "Cancel Portal Client",
+                ContactName = "Cancel Contact",
+                Email = $"cancel-portal-{Guid.NewGuid():N}@billflow.test",
+            });
+        var createdClient = await billingClient.Content.ReadFromJsonAsync<ClientResponse>(JsonOptions);
+        Assert.NotNull(createdClient);
+
+        var createInvoice = await client.PostAsJsonAsync(
+            "/api/v1.0/billing/Invoice/Create",
+            new CreateInvoiceRequest
+            {
+                ClientId = createdClient.Id,
+                LineItems =
+                [
+                    new InvoiceLineItemRequest
+                    {
+                        Description = "Cancel test",
+                        Quantity = 1,
+                        UnitPrice = 50m,
+                    },
+                ],
+            });
+        var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
+        Assert.NotNull(invoice);
+
+        await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+
+        var shareResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoice.Id}", null);
+        var shareLink = await shareResponse.Content.ReadFromJsonAsync<ShareLinkResponse>(JsonOptions);
+        Assert.NotNull(shareLink?.Token);
+
+        await client.PostAsync($"/api/v1.0/billing/Invoice/Cancel/{invoice.Id}", null);
+
+        var portalClient = fixture.ManagementFactory.CreateClient();
+        var portalResponse = await portalClient.GetAsync($"/api/v1.0/portal/{shareLink.Token}");
+        Assert.Equal(HttpStatusCode.NotFound, portalResponse.StatusCode);
     }
 
     private async Task<string> RegisterAndLoginVisitorAsync()

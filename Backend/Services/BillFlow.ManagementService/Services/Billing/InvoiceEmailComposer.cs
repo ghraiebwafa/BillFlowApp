@@ -1,3 +1,4 @@
+using System.Net;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Shared.Email;
 
@@ -27,9 +28,9 @@ public sealed class InvoiceEmailComposer : IInvoiceEmailComposer
             """;
 
         var html = $"""
-            <p>Hello {invoice.ClientContactName},</p>
-            <p>Please find attached invoice <strong>{invoice.InvoiceNumber}</strong> from <strong>{companyName}</strong>.</p>
-            <p><strong>Total due:</strong> {invoice.Total:0.00} {currency}<br/>
+            <p>Hello {WebUtility.HtmlEncode(invoice.ClientContactName)},</p>
+            <p>Please find attached invoice <strong>{WebUtility.HtmlEncode(invoice.InvoiceNumber)}</strong> from <strong>{WebUtility.HtmlEncode(companyName)}</strong>.</p>
+            <p><strong>Total due:</strong> {invoice.Total:0.00} {WebUtility.HtmlEncode(currency)}<br/>
             <strong>Due date:</strong> {invoice.DueDate:yyyy-MM-dd}</p>
             <p>Thank you for your business.</p>
             """;

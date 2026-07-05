@@ -1,6 +1,7 @@
 using BillFlow.Database.DbContexts;
 using BillFlow.Models.Entities;
 using BillFlow.Repositories.Interfaces;
+using BillFlow.Shared.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace BillFlow.Repositories.Billing;
@@ -9,13 +10,15 @@ public sealed class InvoiceShareTokenRepository(BillFlowDbContext db) : IInvoice
 {
     public Task<InvoiceShareToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
     {
+        var tokenHash = ShareTokenHasher.Hash(token);
+
         return db.InvoiceShareTokens
             .Include(t => t.Invoice)
                 .ThenInclude(i => i.Client)
             .Include(t => t.Invoice)
                 .ThenInclude(i => i.LineItems.OrderBy(l => l.SortOrder))
             .FirstOrDefaultAsync(
-                t => t.Token == token && !t.IsRevoked,
+                t => t.TokenHash == tokenHash && !t.IsRevoked,
                 cancellationToken);
     }
 

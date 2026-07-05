@@ -60,7 +60,8 @@ public sealed class InvoicePdfGenerator : IInvoicePdfGenerator
                             left.Item().Text("Bill to").Bold().FontColor(accent);
                             left.Item().Text(invoice.ClientCompanyName);
                             left.Item().Text(invoice.ClientContactName);
-                            left.Item().Text(invoice.ClientEmail);
+                            if (!string.IsNullOrWhiteSpace(invoice.ClientEmail))
+                                left.Item().Text(invoice.ClientEmail);
                         });
 
                         row.RelativeItem().Column(right =>

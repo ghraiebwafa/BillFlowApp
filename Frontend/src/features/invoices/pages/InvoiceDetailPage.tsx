@@ -19,9 +19,10 @@ import { invoiceDetailSchema, paymentRecordSchema } from "../../../domain/billin
 import { toast } from "../../../shared/ui/toast-store";
 
 const shareLinkSchema = z.object({
-  token: z.string(),
-  url: z.string(),
+  token: z.string().optional(),
+  url: z.string().optional(),
   expiresAt: z.string().nullable().optional(),
+  alreadyActive: z.boolean().optional(),
 });
 
 function formatMoney(amount: number): string {
@@ -111,15 +112,24 @@ export function InvoiceDetailPage() {
 
   const shareMutation = useMutation({
     mutationFn: () =>
-      managementRequest<{ token: string; url: string }>(`/api/v1.0/billing/Invoice/ShareLink/${id}`, {
+      managementRequest<z.infer<typeof shareLinkSchema>>(`/api/v1.0/billing/Invoice/ShareLink/${id}`, {
         method: "POST",
         schema: shareLinkSchema,
       }),
-    onSuccess: (data) => {
-      const portalUrl = `${window.location.origin}/portal/${data.token}`;
-      void navigator.clipboard.writeText(portalUrl);
+    onSuccess: async (data) => {
       void queryClient.invalidateQueries({ queryKey: ["activity"] });
-      toast(t("invoices.shareLinkCopied"), "success");
+      if (data.alreadyActive) {
+        toast(t("invoices.shareLinkAlreadyActive"), "info");
+        return;
+      }
+
+      const portalUrl = data.url ?? `${window.location.origin}/portal/${data.token ?? ""}`;
+      try {
+        await navigator.clipboard.writeText(portalUrl);
+        toast(t("invoices.shareLinkCopied"), "success");
+      } catch {
+        toast(t("invoices.shareLinkCopyFailed"), "error");
+      }
     },
     onError: (err) => {
       toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");

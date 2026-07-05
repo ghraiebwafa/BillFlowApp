@@ -23,7 +23,7 @@ const publicIssuerSchema = z.object({
   email: z.string().nullable().optional(),
   taxNumber: z.string().nullable().optional(),
   currency: z.string(),
-  brandColor: z.string().nullable().optional(),
+  brandColor: z.union([z.literal(""), z.string().regex(/^#[0-9A-Fa-f]{6}$/)]).nullable().optional(),
   invoiceFooterNote: z.string().nullable().optional(),
 });
 
@@ -62,13 +62,17 @@ function statusVariant(status: InvoiceStatus): "paid" | "partial" | "unpaid" | "
   return "unpaid";
 }
 
+function sanitizeBrandColor(value?: string | null): string {
+  if (!value || !/^#[0-9A-Fa-f]{6}$/.test(value)) return "#ff6b00";
+  return value;
+}
+
 async function fetchPublicInvoice(token: string): Promise<PublicInvoice> {
-  const url = `${env.managementApiUrl}/api/v1.0/portal/${token}`;
+  const url = `${env.managementApiUrl}/api/v1.0/portal/${encodeURIComponent(token)}`;
   const response = await fetch(url, { headers: { Accept: "application/json" } });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.detail ?? "Invoice not found or link has expired.");
+    throw new Error("portal_unavailable");
   }
 
   return publicInvoiceSchema.parse(await response.json());
@@ -86,7 +90,7 @@ export function PortalPage() {
     staleTime: 5 * 60_000,
   });
 
-  const brandColor = invoice?.issuer?.brandColor ?? "#ff6b00";
+  const brandColor = sanitizeBrandColor(invoice?.issuer?.brandColor);
   const currency = invoice?.issuer?.currency ?? "USD";
 
   const downloadPdf = async () => {
@@ -130,7 +134,7 @@ export function PortalPage() {
               <FileText className="h-12 w-12 text-secondary" />
             </div>
             <h2 className="portal-error-title">{t("portal.expired")}</h2>
-            <p className="text-secondary text-sm">{(error as Error).message}</p>
+            <p className="text-secondary text-sm">{t("portal.notFound")}</p>
           </div>
         ) : null}
 

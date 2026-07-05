@@ -162,6 +162,8 @@ export const en = {
     shareLink: "Share link",
     revokeLink: "Revoke link",
     shareLinkCopied: "Share link copied to clipboard.",
+    shareLinkAlreadyActive: "A share link is already active for this invoice.",
+    shareLinkCopyFailed: "Could not copy the link. Copy it manually from the address bar after sharing.",
     shareLinkRevoked: "Share link has been revoked.",
     actionError: "Unable to complete this invoice action.",
     client: "Client",

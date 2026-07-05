@@ -16,4 +16,5 @@ public enum AuditAction
     ShareLinkCreated = 12,
     ShareLinkRevoked = 13,
     PortalViewed = 14,
+    PortalPdfDownloaded = 15,
 }

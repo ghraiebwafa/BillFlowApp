@@ -49,6 +49,7 @@ public sealed class PersistedTokenSessionService(
 
         try
         {
+            await cache.RemoveAsync(CacheKeys.TokenVersion(userId), cancellationToken);
             await cache.SetAsync(CacheKeys.TokenVersion(userId), next, expiry: null, cancellationToken);
         }
         catch (Exception ex)

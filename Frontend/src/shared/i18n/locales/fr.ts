@@ -162,6 +162,8 @@ export const fr = {
     shareLink: "Lien de partage",
     revokeLink: "Revoquer le lien",
     shareLinkCopied: "Lien de partage copie dans le presse-papiers.",
+    shareLinkAlreadyActive: "Un lien de partage est deja actif pour cette facture.",
+    shareLinkCopyFailed: "Impossible de copier le lien. Copiez-le manuellement.",
     shareLinkRevoked: "Le lien de partage a ete revoque.",
     actionError: "Impossible d'effectuer cette action sur la facture.",
     client: "Client",

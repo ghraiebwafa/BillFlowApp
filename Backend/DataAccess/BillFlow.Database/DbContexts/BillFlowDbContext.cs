@@ -301,12 +301,12 @@ public class BillFlowDbContext : DbContext
         {
             entity.HasKey(x => x.Id);
 
-            entity.HasIndex(x => x.Token)
+            entity.HasIndex(x => x.TokenHash)
                 .IsUnique();
 
             entity.HasIndex(x => x.InvoiceId);
 
-            entity.Property(x => x.Token)
+            entity.Property(x => x.TokenHash)
                 .HasMaxLength(64)
                 .IsRequired();
         });

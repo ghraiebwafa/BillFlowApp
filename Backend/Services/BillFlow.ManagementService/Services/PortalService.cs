@@ -47,9 +47,17 @@ public sealed class PortalService(
         var invoice = shareToken!.Invoice;
         var settings = await companySettingsRepository.GetByOwnerAsync(invoice.OwnerId, cancellationToken);
 
-        var detail = MapDetail(invoice);
+        var detail = MapDetailForPortalPdf(invoice);
         var issuer = settings is null ? null : CompanySettingsBillingService.Map(settings);
         var content = pdfGenerator.Generate(detail, issuer);
+
+        await auditTrail.LogAnonymousAsync(
+            invoice.OwnerId,
+            AuditAction.PortalPdfDownloaded,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Invoice {invoice.InvoiceNumber} PDF downloaded via customer portal.",
+            cancellationToken);
 
         return OperationResult<InvoicePdfFile>.Ok(new InvoicePdfFile
         {
@@ -64,9 +72,12 @@ public sealed class PortalService(
             return "Invoice not found or link has expired.";
 
         if (shareToken.ExpiresAt.HasValue && shareToken.ExpiresAt.Value < DateTime.UtcNow)
-            return "This share link has expired.";
+            return "Invoice not found or link has expired.";
 
-        if (shareToken.Invoice.IsDeleted)
+        if (shareToken.Invoice is null || shareToken.Invoice.IsDeleted)
+            return "Invoice not found or link has expired.";
+
+        if (shareToken.Invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled)
             return "Invoice not found or link has expired.";
 
         return null;
@@ -107,10 +118,17 @@ public sealed class PortalService(
             Email = settings.Email,
             TaxNumber = settings.TaxNumber,
             Currency = settings.Currency,
-            BrandColor = settings.BrandColor,
+            BrandColor = SanitizeBrandColor(settings.BrandColor),
             InvoiceFooterNote = settings.InvoiceFooterNote,
         },
     };
+
+    private static InvoiceDetailResponse MapDetailForPortalPdf(Invoice invoice)
+    {
+        var detail = MapDetail(invoice);
+        detail.ClientEmail = string.Empty;
+        return detail;
+    }
 
     private static InvoiceDetailResponse MapDetail(Invoice invoice) => new()
     {
@@ -144,6 +162,20 @@ public sealed class PortalService(
             })
             .ToList(),
     };
+
+    private static string? SanitizeBrandColor(string? brandColor)
+    {
+        if (string.IsNullOrWhiteSpace(brandColor))
+            return null;
+
+        var value = brandColor.Trim();
+        if (!value.StartsWith('#'))
+            value = $"#{value}";
+
+        return value.Length == 7 && value[1..].All(c => char.IsAsciiHexDigit(c))
+            ? value.ToUpperInvariant()
+            : null;
+    }
 
     private static string SanitizeFileName(string invoiceNumber)
     {

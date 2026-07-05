@@ -2,6 +2,7 @@ using BillFlow.ManagementService.Extensions;
 using BillFlow.ManagementService.Services;
 using BillFlow.Models.Dtos.Billing;
 using BillFlow.Models.Shared.Enums;
+using BillFlow.Shared.Configuration;
 using BillFlow.Shared.Constants;
 using BillFlow.Shared.Security;
 using Microsoft.AspNetCore.Authorization;
@@ -82,7 +83,10 @@ public class InvoiceController(IInvoiceBillingService invoiceService) : Controll
     [HttpPost("ShareLink/{id:guid}")]
     public Task<IActionResult> GenerateShareLink(Guid id, CancellationToken cancellationToken)
     {
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        var baseUrl = BillFlowEnv.Get("PORTAL_BASE_URL", string.Empty);
+        if (string.IsNullOrWhiteSpace(baseUrl))
+            baseUrl = $"{Request.Scheme}://{Request.Host}";
+
         return invoiceService.GenerateShareLinkAsync(id, baseUrl, cancellationToken).ToBillingActionResult();
     }
 

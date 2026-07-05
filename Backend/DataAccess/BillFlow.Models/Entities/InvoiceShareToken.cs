@@ -8,7 +8,7 @@ public class InvoiceShareToken
 
     public Invoice Invoice { get; set; } = null!;
 
-    public string Token { get; set; } = null!;
+    public string TokenHash { get; set; } = null!;
 
     public bool IsRevoked { get; set; }
 

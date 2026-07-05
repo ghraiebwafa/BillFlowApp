@@ -4,7 +4,9 @@ using BillFlow.Models.Entities;
 using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
 using BillFlow.ManagementService.Services.Billing;
+using BillFlow.Shared.Configuration;
 using BillFlow.Shared.Email;
+using BillFlow.Shared.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace BillFlow.ManagementService.Services;
@@ -304,6 +306,7 @@ public sealed class InvoiceBillingService(
         }
 
         await invoiceRepository.SoftDeleteAsync(owner, id, cancellationToken);
+        await shareTokenRepository.RevokeByInvoiceIdAsync(id, cancellationToken);
         await auditTrail.LogAsync(
             owner,
             AuditAction.Deleted,
@@ -466,14 +469,20 @@ public sealed class InvoiceBillingService(
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        return await ChangeStatusAsync(
-            ownerId.Value!.Value,
+        var owner = ownerId.Value!.Value;
+        var result = await ChangeStatusAsync(
+            owner,
             id,
             InvoiceStatusRules.CanCancel,
             InvoiceStatus.Cancelled,
             AuditAction.Cancelled,
             "Only draft or sent invoices can be cancelled.",
             cancellationToken);
+
+        if (result.IsSuccess)
+            await shareTokenRepository.RevokeByInvoiceIdAsync(id, cancellationToken);
+
+        return result;
     }
 
     public async Task<OperationResult<InvoicePdfFile>> DownloadPdfAsync(
@@ -546,10 +555,12 @@ public sealed class InvoiceBillingService(
                 StatusCodes.Status404NotFound);
         }
 
-        if (invoice.Status == InvoiceStatus.Draft)
+        if (invoice.Status is InvoiceStatus.Draft or InvoiceStatus.Cancelled)
         {
             return OperationResult<ShareLinkResponse>.Fail(
-                "Send the invoice before sharing it with a client.",
+                invoice.Status == InvoiceStatus.Draft
+                    ? "Send the invoice before sharing it with a client."
+                    : "Cancelled invoices cannot be shared.",
                 StatusCodes.Status400BadRequest);
         }
 
@@ -558,18 +569,19 @@ public sealed class InvoiceBillingService(
         {
             return OperationResult<ShareLinkResponse>.Ok(new ShareLinkResponse
             {
-                Token = existing.Token,
-                Url = $"{portalBaseUrl.TrimEnd('/')}/portal/{existing.Token}",
+                AlreadyActive = true,
                 ExpiresAt = existing.ExpiresAt,
             });
         }
 
         var token = GenerateSecureToken();
+        var expiryDays = BillFlowEnv.GetInt("PORTAL_LINK_EXPIRY_DAYS", 90);
         var shareToken = new Models.Entities.InvoiceShareToken
         {
             Id = Guid.NewGuid(),
             InvoiceId = id,
-            Token = token,
+            TokenHash = ShareTokenHasher.Hash(token),
+            ExpiresAt = DateTime.UtcNow.AddDays(expiryDays),
         };
 
         await shareTokenRepository.CreateAsync(shareToken, cancellationToken);

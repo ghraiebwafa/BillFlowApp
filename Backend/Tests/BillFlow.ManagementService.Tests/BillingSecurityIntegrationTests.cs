@@ -221,6 +221,26 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
     }
 
     [Fact]
+    public async Task Visitor_CannotManageAnotherOwnersShareLink()
+    {
+        var ownerAToken = await RegisterAndLoginVisitorAsync();
+        var ownerAClient = CreateManagementClient(ownerAToken);
+        var invoiceId = await CreateSentInvoiceAsync(ownerAClient);
+
+        var shareResponse = await ownerAClient.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoiceId}", null);
+        Assert.Equal(HttpStatusCode.Created, shareResponse.StatusCode);
+
+        var ownerBToken = await RegisterAndLoginVisitorAsync();
+        var ownerBClient = CreateManagementClient(ownerBToken);
+
+        var revokeResponse = await ownerBClient.DeleteAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoiceId}");
+        Assert.Equal(HttpStatusCode.NotFound, revokeResponse.StatusCode);
+
+        var generateResponse = await ownerBClient.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoiceId}", null);
+        Assert.Equal(HttpStatusCode.NotFound, generateResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task ExportTaxes_ReturnsCsv()
     {
         var token = await RegisterAndLoginVisitorAsync();

@@ -13,6 +13,7 @@ export const AuditAction = {
   ShareLinkCreated: 12,
   ShareLinkRevoked: 13,
   PortalViewed: 14,
+  PortalPdfDownloaded: 15,
 } as const;
 
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
@@ -68,6 +69,8 @@ export function auditActionLabel(action: AuditAction): string {
       return "Revoked";
     case AuditAction.PortalViewed:
       return "Viewed";
+    case AuditAction.PortalPdfDownloaded:
+      return "PDF";
     default:
       return "Activity";
   }
