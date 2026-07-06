@@ -10,11 +10,11 @@ namespace BillFlow.ManagementService.Controllers;
 
 [ApiController]
 [Authorize(Policy = RoleNames.Visitor)]
-[Route("api/v1.0/billing/Activity")]
+[Route("api/v1.0/billing/activity")]
 public class ActivityController(IAuditTrailService auditTrailService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetRecent")]
+    [HttpGet]
     public Task<IActionResult> GetRecent(
         [FromQuery] int limit = 50,
         CancellationToken cancellationToken = default) =>

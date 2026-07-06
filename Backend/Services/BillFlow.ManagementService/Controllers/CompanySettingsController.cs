@@ -11,16 +11,16 @@ namespace BillFlow.ManagementService.Controllers;
 
 [ApiController]
 [Authorize(Policy = RoleNames.Visitor)]
-[Route("api/v1.0/billing/CompanySettings")]
+[Route("api/v1.0/billing/company-settings")]
 public class CompanySettingsController(ICompanySettingsBillingService companySettingsService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("Get")]
+    [HttpGet]
     public Task<IActionResult> Get(CancellationToken cancellationToken) =>
         companySettingsService.GetAsync(cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPut("Upsert")]
+    [HttpPut]
     public Task<IActionResult> Upsert(
         [FromBody] UpsertCompanySettingsRequest request,
         CancellationToken cancellationToken) =>

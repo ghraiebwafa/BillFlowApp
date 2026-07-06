@@ -13,11 +13,13 @@ namespace BillFlow.ManagementService.Controllers;
 
 [ApiController]
 [Authorize(Policy = RoleNames.Visitor)]
-[Route("api/v1.0/billing/Invoice")]
-public class InvoiceController(IInvoiceBillingService invoiceService) : ControllerBase
+[Route("api/v1.0/billing/invoices")]
+public class InvoiceController(
+    IInvoiceBillingService invoiceService,
+    IPaymentBillingService paymentService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetAll")]
+    [HttpGet]
     public Task<IActionResult> GetAll(
         [FromQuery] InvoiceStatus? status,
         [FromQuery] string? search,
@@ -25,19 +27,24 @@ public class InvoiceController(IInvoiceBillingService invoiceService) : Controll
         invoiceService.GetAllAsync(status, search, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetById/{id:guid}")]
+    [HttpGet("{id:guid}")]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
         invoiceService.GetByIdAsync(id, cancellationToken).ToBillingActionResult();
 
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
+    [HttpGet("{invoiceId:guid}/payments")]
+    public Task<IActionResult> GetPayments(Guid invoiceId, CancellationToken cancellationToken) =>
+        paymentService.GetByInvoiceAsync(invoiceId, cancellationToken).ToBillingActionResult();
+
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("Create")]
+    [HttpPost]
     public Task<IActionResult> Create(
         [FromBody] CreateInvoiceRequest request,
         CancellationToken cancellationToken) =>
         invoiceService.CreateAsync(request, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPut("Update/{id:guid}")]
+    [HttpPut("{id:guid}")]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateInvoiceRequest request,
@@ -45,42 +52,42 @@ public class InvoiceController(IInvoiceBillingService invoiceService) : Controll
         invoiceService.UpdateAsync(id, request, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("Duplicate/{id:guid}")]
+    [HttpPost("{id:guid}/duplicate")]
     public Task<IActionResult> Duplicate(Guid id, CancellationToken cancellationToken) =>
         invoiceService.DuplicateAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpDelete("Delete/{id:guid}")]
+    [HttpDelete("{id:guid}")]
     public Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
         invoiceService.DeleteAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("Send/{id:guid}")]
+    [HttpPost("{id:guid}/send")]
     public Task<IActionResult> Send(Guid id, CancellationToken cancellationToken) =>
         invoiceService.SendAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("Email/{id:guid}")]
+    [HttpPost("{id:guid}/email")]
     public Task<IActionResult> Email(Guid id, CancellationToken cancellationToken) =>
         invoiceService.EmailInvoiceAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("MarkPaid/{id:guid}")]
+    [HttpPost("{id:guid}/mark-paid")]
     public Task<IActionResult> MarkPaid(Guid id, CancellationToken cancellationToken) =>
         invoiceService.MarkPaidAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("Cancel/{id:guid}")]
+    [HttpPost("{id:guid}/cancel")]
     public Task<IActionResult> Cancel(Guid id, CancellationToken cancellationToken) =>
         invoiceService.CancelAsync(id, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.BillingExport)]
-    [HttpGet("DownloadPdf/{id:guid}")]
+    [HttpGet("{id:guid}/pdf")]
     public Task<IActionResult> DownloadPdf(Guid id, CancellationToken cancellationToken) =>
         this.ToBillingPdfResult(invoiceService.DownloadPdfAsync(id, cancellationToken));
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("ShareLink/{id:guid}")]
+    [HttpPost("{id:guid}/share-link")]
     public Task<IActionResult> GenerateShareLink(Guid id, CancellationToken cancellationToken)
     {
         var baseUrl = BillFlowEnv.Get("PORTAL_BASE_URL", string.Empty);
@@ -91,7 +98,7 @@ public class InvoiceController(IInvoiceBillingService invoiceService) : Controll
     }
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpDelete("ShareLink/{id:guid}")]
+    [HttpDelete("{id:guid}/share-link")]
     public Task<IActionResult> RevokeShareLink(Guid id, CancellationToken cancellationToken) =>
         invoiceService.RevokeShareLinkAsync(id, cancellationToken).ToBillingActionResult();
 }

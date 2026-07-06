@@ -11,11 +11,11 @@ namespace BillFlow.ManagementService.Controllers;
 
 [ApiController]
 [Authorize(Policy = RoleNames.Visitor)]
-[Route("api/v1.0/billing/Reports")]
+[Route("api/v1.0/billing/reports")]
 public class ReportsController(IReportsBillingService reportsService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingExport)]
-    [HttpGet("ExportSales")]
+    [HttpGet("sales")]
     public Task<IActionResult> ExportSales(
         [FromQuery] ReportFormat format = ReportFormat.Csv,
         [FromQuery] DateTime? from = null,
@@ -24,7 +24,7 @@ public class ReportsController(IReportsBillingService reportsService) : Controll
         this.ToBillingFileResult(reportsService.ExportSalesAsync(format, from, to, cancellationToken));
 
     [EnableRateLimiting(RateLimitPolicies.BillingExport)]
-    [HttpGet("ExportPayments")]
+    [HttpGet("payments")]
     public Task<IActionResult> ExportPayments(
         [FromQuery] ReportFormat format = ReportFormat.Csv,
         [FromQuery] DateTime? from = null,
@@ -33,14 +33,14 @@ public class ReportsController(IReportsBillingService reportsService) : Controll
         this.ToBillingFileResult(reportsService.ExportPaymentsAsync(format, from, to, cancellationToken));
 
     [EnableRateLimiting(RateLimitPolicies.BillingExport)]
-    [HttpGet("ExportOutstanding")]
+    [HttpGet("outstanding")]
     public Task<IActionResult> ExportOutstanding(
         [FromQuery] ReportFormat format = ReportFormat.Csv,
         CancellationToken cancellationToken = default) =>
         this.ToBillingFileResult(reportsService.ExportOutstandingAsync(format, cancellationToken));
 
     [EnableRateLimiting(RateLimitPolicies.BillingExport)]
-    [HttpGet("ExportTaxes")]
+    [HttpGet("taxes")]
     public Task<IActionResult> ExportTaxes(
         [FromQuery] ReportFormat format = ReportFormat.Csv,
         [FromQuery] DateTime? from = null,

@@ -10,11 +10,11 @@ namespace BillFlow.ManagementService.Controllers;
 
 [ApiController]
 [Authorize(Policy = RoleNames.Visitor)]
-[Route("api/v1.0/billing/Dashboard")]
+[Route("api/v1.0/billing/dashboard")]
 public class DashboardController(IDashboardBillingService dashboardService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetSummary")]
+    [HttpGet]
     public Task<IActionResult> GetSummary(
         [FromQuery] int revenueMonths = 12,
         [FromQuery] int topClientsLimit = 5,

@@ -11,28 +11,28 @@ namespace BillFlow.ManagementService.Controllers;
 
 [ApiController]
 [Authorize(Policy = RoleNames.SuperAdmin)]
-[Route("api/v1.0/management/Admin")]
+[Route("api/v1.0/management/admins")]
 public class AdminController(IAdminManagementService adminService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetAll")]
+    [HttpGet]
     public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
         adminService.GetAllAsync(cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetById/{id:guid}")]
+    [HttpGet("{id:guid}")]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
         adminService.GetByIdAsync(id, cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPost("Create")]
+    [HttpPost]
     public Task<IActionResult> Create(
         [FromBody] CreateAdminRequest request,
         CancellationToken cancellationToken) =>
         adminService.CreateAsync(request, cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPut("Update/{id:guid}")]
+    [HttpPut("{id:guid}")]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateAdminRequest request,
@@ -40,7 +40,7 @@ public class AdminController(IAdminManagementService adminService) : ControllerB
         adminService.UpdateAsync(id, request, cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpDelete("Delete/{id:guid}")]
+    [HttpDelete("{id:guid}")]
     public Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
         adminService.DeleteAsync(id, cancellationToken).ToManagementActionResult();
 }

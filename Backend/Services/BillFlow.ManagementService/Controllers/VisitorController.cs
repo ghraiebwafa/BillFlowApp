@@ -11,21 +11,21 @@ namespace BillFlow.ManagementService.Controllers;
 
 [ApiController]
 [Authorize(Policy = RoleNames.AdminOrSuperAdmin)]
-[Route("api/v1.0/management/Visitor")]
+[Route("api/v1.0/management/visitors")]
 public class VisitorController(IVisitorManagementService visitorService) : ControllerBase
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetAll")]
+    [HttpGet]
     public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
         visitorService.GetAllAsync(cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
-    [HttpGet("GetById/{id:guid}")]
+    [HttpGet("{id:guid}")]
     public Task<IActionResult> GetById(Guid id, CancellationToken cancellationToken) =>
         visitorService.GetByIdAsync(id, cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpPut("Update/{id:guid}")]
+    [HttpPut("{id:guid}")]
     public Task<IActionResult> Update(
         Guid id,
         [FromBody] UpdateVisitorRequest request,
@@ -33,7 +33,7 @@ public class VisitorController(IVisitorManagementService visitorService) : Contr
         visitorService.UpdateAsync(id, request, cancellationToken).ToManagementActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
-    [HttpDelete("Delete/{id:guid}")]
+    [HttpDelete("{id:guid}")]
     public Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken) =>
         visitorService.DeleteAsync(id, cancellationToken).ToManagementActionResult();
 }
