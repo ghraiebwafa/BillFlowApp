@@ -153,91 +153,108 @@ Swagger is available at `/swagger` on each service.
 | DELETE | `deactivate` | Bearer | Deactivate account |
 | DELETE | `delete` | Bearer | Delete account |
 
-### Management — Admin `/api/v1.0/management/Admin`
+### Management — Admins `/api/v1.0/management/admins`
 
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | `GetAll` | SuperAdmin | List admins |
-| GET | `GetById/{id}` | SuperAdmin | Get admin |
-| POST | `Create` | SuperAdmin | Create admin |
-| PUT | `Update/{id}` | SuperAdmin | Update admin |
-| DELETE | `Delete/{id}` | SuperAdmin | Delete admin |
+| GET | `/` | SuperAdmin | List admins |
+| GET | `/{id}` | SuperAdmin | Get admin |
+| POST | `/` | SuperAdmin | Create admin |
+| PUT | `/{id}` | SuperAdmin | Update admin |
+| DELETE | `/{id}` | SuperAdmin | Delete admin |
 
-### Management — Visitor `/api/v1.0/management/Visitor`
+### Management — Visitors `/api/v1.0/management/visitors`
 
 | Method | Path | Role | Description |
 |--------|------|------|-------------|
-| GET | `GetAll` | Admin+ | List business owners |
-| GET | `GetById/{id}` | Admin+ | Get visitor |
-| PUT | `Update/{id}` | Admin+ | Update visitor |
-| DELETE | `Delete/{id}` | Admin+ | Delete visitor |
+| GET | `/` | Admin+ | List business owners |
+| GET | `/{id}` | Admin+ | Get visitor |
+| PUT | `/{id}` | Admin+ | Update visitor |
+| DELETE | `/{id}` | Admin+ | Delete visitor |
 
-### Billing — Clients `/api/v1.0/billing/Client`
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `GetAll?search=` | List/search clients |
-| GET | `GetById/{id}` | Get client |
-| POST | `Create` | Create client |
-| PUT | `Update/{id}` | Update client |
-| DELETE | `Delete/{id}` | Soft-delete client |
-
-### Billing — Items `/api/v1.0/billing/Item`
+### Billing — Clients `/api/v1.0/billing/clients`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `GetAll?search=&includeArchived=` | List items |
-| GET | `GetById/{id}` | Get item |
-| POST | `Create` | Create item |
-| PUT | `Update/{id}` | Update item |
-| POST | `Archive/{id}` | Archive item |
-| DELETE | `Delete/{id}` | Delete item |
+| GET | `?search=` | List/search clients |
+| GET | `/{id}` | Get client |
+| POST | `/` | Create client |
+| PUT | `/{id}` | Update client |
+| DELETE | `/{id}` | Soft-delete client |
 
-### Billing — Invoices `/api/v1.0/billing/Invoice`
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `GetAll?status=&search=` | List invoices |
-| GET | `GetById/{id}` | Invoice detail |
-| POST | `Create` | Create draft invoice |
-| PUT | `Update/{id}` | Update draft invoice |
-| POST | `Duplicate/{id}` | Duplicate invoice |
-| DELETE | `Delete/{id}` | Delete draft |
-| POST | `Send/{id}` | Mark as sent |
-| POST | `MarkPaid/{id}` | Mark paid + payment |
-| POST | `Cancel/{id}` | Cancel invoice |
-| GET | `DownloadPdf/{id}` | Download PDF |
-
-### Billing — Payments `/api/v1.0/billing/Payment`
+### Billing — Items `/api/v1.0/billing/items`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `GetByInvoice/{invoiceId}` | List payments |
-| POST | `Create` | Record payment |
-| POST | `Refund/{id}` | Refund payment |
-| POST | `Cancel/{id}` | Cancel payment |
+| GET | `?search=&includeArchived=` | List items |
+| GET | `/{id}` | Get item |
+| POST | `/` | Create item |
+| PUT | `/{id}` | Update item |
+| POST | `/{id}/archive` | Archive item |
+| DELETE | `/{id}` | Delete item |
 
-### Billing — Dashboard `/api/v1.0/billing/Dashboard`
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `GetSummary` | Revenue, counts, chart data |
-
-### Billing — Company settings `/api/v1.0/billing/CompanySettings`
+### Billing — Invoices `/api/v1.0/billing/invoices`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `Get` | Get settings (404 if not configured) |
-| PUT | `Upsert` | Create or update settings |
+| GET | `?status=&search=` | List invoices |
+| GET | `/{id}` | Invoice detail |
+| GET | `/{id}/payments` | Payments for invoice |
+| POST | `/` | Create draft invoice |
+| PUT | `/{id}` | Update draft invoice |
+| POST | `/{id}/duplicate` | Duplicate invoice |
+| DELETE | `/{id}` | Delete draft |
+| POST | `/{id}/send` | Mark as sent |
+| POST | `/{id}/email` | Email invoice PDF |
+| POST | `/{id}/mark-paid` | Mark paid + payment |
+| POST | `/{id}/cancel` | Cancel invoice |
+| GET | `/{id}/pdf` | Download PDF |
+| POST | `/{id}/share-link` | Generate customer portal link |
+| DELETE | `/{id}/share-link` | Revoke portal link |
 
-### Billing — Reports `/api/v1.0/billing/Reports`
+### Billing — Payments `/api/v1.0/billing/payments`
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `ExportSales` | Sales report file |
-| GET | `ExportPayments` | Payments report file |
-| GET | `ExportOutstanding` | Outstanding invoices file |
-| GET | `ExportTaxes` | Tax summary file |
+| GET | `/` | List all payments |
+| POST | `/` | Record payment |
+| POST | `/{id}/refund` | Refund payment |
+| POST | `/{id}/cancel` | Cancel payment |
+
+### Billing — Dashboard `/api/v1.0/billing/dashboard`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Revenue, counts, chart data |
+
+### Billing — Company settings `/api/v1.0/billing/company-settings`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/` | Get settings (404 if not configured) |
+| PUT | `/` | Create or update settings |
+
+### Billing — Reports `/api/v1.0/billing/reports`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/sales` | Sales report file |
+| GET | `/payments` | Payments report file |
+| GET | `/outstanding` | Outstanding invoices file |
+| GET | `/taxes` | Tax summary file |
+
+### Billing — Activity `/api/v1.0/billing/activity`
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `?limit=` | Recent audit events |
+
+### Portal — `/api/v1.0/portal` (public, no auth)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/{token}` | View invoice (JSON) |
+| GET | `/{token}/pdf` | Download branded PDF |
 
 ---
 
@@ -454,7 +471,7 @@ Backend/
 
 - [ ] Email / SMTP (password reset, invoice send, payment reminders)
 - [ ] Logo upload in company settings
-- [ ] Pagination on `GetAll` list endpoints
+- [ ] Pagination on list endpoints (`GET /clients`, `/invoices`, etc.)
 - [ ] Email verification on registration
 - [ ] Payment reminder background job
 

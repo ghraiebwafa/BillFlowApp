@@ -19,13 +19,13 @@ Content-Type: application/json
 ###
 
 ### Admin — GetAll (SuperAdmin only)
-GET {{Management_Host}}/api/v1.0/management/Admin/GetAll
+GET {{Management_Host}}/api/v1.0/management/admins
 Authorization: Bearer {{accessToken}}
 
 ###
 
 ### Admin — Create
-POST {{Management_Host}}/api/v1.0/management/Admin/Create
+POST {{Management_Host}}/api/v1.0/management/admins
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
@@ -39,7 +39,7 @@ Content-Type: application/json
 ###
 
 ### Visitor — GetAll (Admin or SuperAdmin)
-GET {{Management_Host}}/api/v1.0/management/Visitor/GetAll
+GET {{Management_Host}}/api/v1.0/management/visitors
 Authorization: Bearer {{accessToken}}
 
 ###
