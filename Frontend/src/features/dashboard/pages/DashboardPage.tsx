@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { LineChart } from "../../../shared/ui/LineChart";
 import { managementRequest } from "../../../shared/api/management-client";
+import { billingApi } from "../../../domain/billing/api-paths";
 import type { DashboardResponse } from "../../../domain/billing/dashboard";
 import { ApiError } from "../../../shared/api/api-error";
 
@@ -34,7 +35,7 @@ export function DashboardPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard", "summary"],
     queryFn: () =>
-      managementRequest<DashboardResponse>("/api/v1.0/billing/Dashboard/GetSummary"),
+      managementRequest<DashboardResponse>(billingApi.dashboard),
   });
 
   const chartPoints =

@@ -8,6 +8,7 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { FormField } from "../../../shared/ui/FormField";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
+import { billingApi } from "../../../domain/billing/api-paths";
 import type { ClientResponse } from "../../../domain/billing/client";
 import type { InvoiceDetail } from "../../../domain/billing/invoice";
 import { clientResponseSchema, invoiceDetailSchema } from "../../../domain/billing/schemas";
@@ -31,7 +32,7 @@ export function CreateInvoicePage() {
   const { data: clients } = useQuery({
     queryKey: ["clients"],
     queryFn: () =>
-      managementRequest<ClientResponse[]>("/api/v1.0/billing/Client/GetAll", {
+      managementRequest<ClientResponse[]>(billingApi.clients, {
         schema: z.array(clientResponseSchema),
       }),
   });
@@ -49,7 +50,7 @@ export function CreateInvoicePage() {
 
   const createMutation = useMutation({
     mutationFn: (body: unknown) =>
-      managementRequest<InvoiceDetail>("/api/v1.0/billing/Invoice/Create", {
+      managementRequest<InvoiceDetail>(billingApi.invoices, {
         method: "POST",
         body,
         schema: invoiceDetailSchema,

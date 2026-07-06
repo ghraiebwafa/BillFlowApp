@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
+import { billingApi } from "../../../domain/billing/api-paths";
 import { clientInitial, type ClientResponse } from "../../../domain/billing/client";
 
 function useDebouncedValue(value: string, delayMs = 300): string {
@@ -29,7 +30,7 @@ export function ClientsPage() {
       const params = debouncedSearch.trim()
         ? `?search=${encodeURIComponent(debouncedSearch.trim())}`
         : "";
-      return managementRequest<ClientResponse[]>(`/api/v1.0/billing/Client/GetAll${params}`);
+      return managementRequest<ClientResponse[]>(`${billingApi.clients}${params}`);
     },
   });
 

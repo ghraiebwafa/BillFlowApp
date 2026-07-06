@@ -7,6 +7,7 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
+import { billingApi } from "../../../domain/billing/api-paths";
 import { paymentRecordSchema } from "../../../domain/billing/schemas";
 import type { PaymentRecord } from "../../../domain/billing/payment";
 import { paymentMethodLabel } from "../../../domain/billing/payment";
@@ -28,7 +29,7 @@ export function PaymentsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["payments"],
     queryFn: () =>
-      managementRequest<PaymentRecord[]>("/api/v1.0/billing/Payment/GetAll", {
+      managementRequest<PaymentRecord[]>(billingApi.payments, {
         schema: z.array(paymentRecordSchema),
       }),
   });

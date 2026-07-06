@@ -9,6 +9,7 @@ import { ApiError } from "../../../shared/api/api-error";
 import { FormField } from "../../../shared/ui/FormField";
 import { FormTextArea } from "../../../shared/ui/FormTextArea";
 import { PageHeader } from "../../../shared/ui/PageHeader";
+import { billingApi } from "../../../domain/billing/api-paths";
 import {
   defaultCompanySettingsForm,
   mapFormToRequest,
@@ -37,7 +38,7 @@ type CompanySettingsForm = z.infer<typeof companySettingsSchema>;
 async function fetchCompanySettings(): Promise<CompanySettingsResponse | null> {
   try {
     return await managementRequest<CompanySettingsResponse>(
-      "/api/v1.0/billing/CompanySettings/Get",
+      billingApi.companySettings,
     );
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -79,7 +80,7 @@ export function CompanySettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: (values: CompanySettingsForm) =>
-      managementRequest<CompanySettingsResponse>("/api/v1.0/billing/CompanySettings/Upsert", {
+      managementRequest<CompanySettingsResponse>(billingApi.companySettings, {
         method: "PUT",
         body: mapFormToRequest(values),
       }),

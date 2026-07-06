@@ -4,6 +4,7 @@ import { Download, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
+import { portalApi } from "../../../domain/billing/api-paths";
 import { env } from "../../../shared/config/env";
 import { InvoiceStatus, invoiceStatusLabel } from "../../../domain/billing/invoice";
 
@@ -68,7 +69,7 @@ function sanitizeBrandColor(value?: string | null): string {
 }
 
 async function fetchPublicInvoice(token: string): Promise<PublicInvoice> {
-  const url = `${env.managementApiUrl}/api/v1.0/portal/${encodeURIComponent(token)}`;
+  const url = `${env.managementApiUrl}${portalApi.invoice(token)}`;
   const response = await fetch(url, { headers: { Accept: "application/json" } });
 
   if (!response.ok) {
@@ -95,7 +96,7 @@ export function PortalPage() {
 
   const downloadPdf = async () => {
     if (!token) return;
-    const url = `${env.managementApiUrl}/api/v1.0/portal/${token}/pdf`;
+    const url = `${env.managementApiUrl}${portalApi.invoicePdf(token)}`;
     const res = await fetch(url);
     if (!res.ok) return;
     const blob = await res.blob();

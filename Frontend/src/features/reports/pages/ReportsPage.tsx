@@ -1,15 +1,16 @@
 import { FileSpreadsheet, FileText, PieChart, Receipt } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../../shared/ui/PageHeader";
+import { billingApi } from "../../../domain/billing/api-paths";
 import { downloadWithAuth } from "../../../shared/api/download-with-auth";
 import { ApiError } from "../../../shared/api/api-error";
 import { toast } from "../../../shared/ui/toast-store";
 
 const reports = [
-  { key: "sales", path: "/api/v1.0/billing/Reports/ExportSales", icon: FileText },
-  { key: "payments", path: "/api/v1.0/billing/Reports/ExportPayments", icon: Receipt },
-  { key: "outstanding", path: "/api/v1.0/billing/Reports/ExportOutstanding", icon: PieChart },
-  { key: "taxes", path: "/api/v1.0/billing/Reports/ExportTaxes", icon: FileSpreadsheet },
+  { key: "sales", path: billingApi.reports.sales, icon: FileText },
+  { key: "payments", path: billingApi.reports.payments, icon: Receipt },
+  { key: "outstanding", path: billingApi.reports.outstanding, icon: PieChart },
+  { key: "taxes", path: billingApi.reports.taxes, icon: FileSpreadsheet },
 ] as const;
 
 export function ReportsPage() {

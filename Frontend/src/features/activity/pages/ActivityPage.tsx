@@ -5,6 +5,7 @@ import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
+import { billingApi } from "../../../domain/billing/api-paths";
 import { auditEventSchema } from "../../../domain/billing/schemas";
 import {
   auditActionLabel,
@@ -28,7 +29,7 @@ export function ActivityPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["activity"],
     queryFn: () =>
-      managementRequest<AuditEvent[]>("/api/v1.0/billing/Activity/GetRecent?limit=50", {
+      managementRequest<AuditEvent[]>(billingApi.activity(), {
         schema: z.array(auditEventSchema),
       }),
   });

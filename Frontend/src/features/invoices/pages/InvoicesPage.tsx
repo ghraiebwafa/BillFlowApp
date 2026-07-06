@@ -7,6 +7,7 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
+import { billingApi } from "../../../domain/billing/api-paths";
 import {
   InvoiceStatus,
   type InvoiceSummary,
@@ -61,7 +62,7 @@ export function InvoicesPage() {
       const params = debouncedSearch.trim()
         ? `?search=${encodeURIComponent(debouncedSearch.trim())}`
         : "";
-      return managementRequest<InvoiceSummary[]>(`/api/v1.0/billing/Invoice/GetAll${params}`);
+      return managementRequest<InvoiceSummary[]>(`${billingApi.invoices}${params}`);
     },
   });
 

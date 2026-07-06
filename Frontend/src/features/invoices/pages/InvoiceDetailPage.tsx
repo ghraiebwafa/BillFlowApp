@@ -16,6 +16,7 @@ import {
 import type { PaymentRecord } from "../../../domain/billing/payment";
 import { paymentMethodLabel, PaymentStatus } from "../../../domain/billing/payment";
 import { invoiceDetailSchema, paymentRecordSchema } from "../../../domain/billing/schemas";
+import { billingApi } from "../../../domain/billing/api-paths";
 import { toast } from "../../../shared/ui/toast-store";
 
 const shareLinkSchema = z.object({
@@ -60,7 +61,7 @@ export function InvoiceDetailPage() {
     queryKey: ["invoice", id],
     enabled: Boolean(id),
     queryFn: () =>
-      managementRequest<InvoiceDetail>(`/api/v1.0/billing/Invoice/GetById/${id}`, {
+      managementRequest<InvoiceDetail>(billingApi.invoice(id!), {
         schema: invoiceDetailSchema,
       }),
   });
@@ -69,14 +70,14 @@ export function InvoiceDetailPage() {
     queryKey: ["invoice-payments", id],
     enabled: Boolean(id),
     queryFn: () =>
-      managementRequest<PaymentRecord[]>(`/api/v1.0/billing/Payment/GetByInvoice/${id}`, {
+      managementRequest<PaymentRecord[]>(billingApi.invoicePayments(id!), {
         schema: z.array(paymentRecordSchema),
       }),
   });
 
   const sendMutation = useMutation({
     mutationFn: () =>
-      managementRequest<InvoiceDetail>(`/api/v1.0/billing/Invoice/Send/${id}`, {
+      managementRequest<InvoiceDetail>(billingApi.invoiceSend(id!), {
         method: "POST",
         schema: invoiceDetailSchema,
       }),
@@ -93,7 +94,7 @@ export function InvoiceDetailPage() {
 
   const emailMutation = useMutation({
     mutationFn: () =>
-      managementRequest<{ message: string }>(`/api/v1.0/billing/Invoice/Email/${id}`, {
+      managementRequest<{ message: string }>(billingApi.invoiceEmail(id!), {
         method: "POST",
         schema: z.object({ message: z.string() }),
       }),
@@ -112,7 +113,7 @@ export function InvoiceDetailPage() {
 
   const shareMutation = useMutation({
     mutationFn: () =>
-      managementRequest<z.infer<typeof shareLinkSchema>>(`/api/v1.0/billing/Invoice/ShareLink/${id}`, {
+      managementRequest<z.infer<typeof shareLinkSchema>>(billingApi.invoiceShareLink(id!), {
         method: "POST",
         schema: shareLinkSchema,
       }),
@@ -138,7 +139,7 @@ export function InvoiceDetailPage() {
 
   const revokeMutation = useMutation({
     mutationFn: () =>
-      managementRequest<{ message: string }>(`/api/v1.0/billing/Invoice/ShareLink/${id}`, {
+      managementRequest<{ message: string }>(billingApi.invoiceShareLink(id!), {
         method: "DELETE",
         schema: z.object({ message: z.string() }),
       }),
@@ -157,7 +158,7 @@ export function InvoiceDetailPage() {
     if (!id) return;
     try {
       await downloadWithAuth(
-        `/api/v1.0/billing/Invoice/DownloadPdf/${id}`,
+        billingApi.invoicePdf(id),
         `${invoice?.invoiceNumber ?? "invoice"}.pdf`,
       );
     } catch {
