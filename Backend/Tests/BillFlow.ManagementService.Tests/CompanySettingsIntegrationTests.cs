@@ -22,7 +22,7 @@ public sealed class CompanySettingsIntegrationTests(ManagementApiFixture fixture
         var token = await RegisterAndLoginVisitorAsync();
         var client = CreateManagementClient(token);
 
-        var response = await client.GetAsync("/api/v1.0/billing/CompanySettings/Get");
+        var response = await client.GetAsync("/api/v1.0/billing/company-settings");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -33,7 +33,7 @@ public sealed class CompanySettingsIntegrationTests(ManagementApiFixture fixture
         var client = CreateManagementClient(token);
 
         var upsertResponse = await client.PutAsJsonAsync(
-            "/api/v1.0/billing/CompanySettings/Upsert",
+            "/api/v1.0/billing/company-settings",
             new UpsertCompanySettingsRequest
             {
                 CompanyName = "Acme Billing Co",
@@ -48,7 +48,7 @@ public sealed class CompanySettingsIntegrationTests(ManagementApiFixture fixture
 
         Assert.Equal(HttpStatusCode.OK, upsertResponse.StatusCode);
 
-        var getResponse = await client.GetAsync("/api/v1.0/billing/CompanySettings/Get");
+        var getResponse = await client.GetAsync("/api/v1.0/billing/company-settings");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
         var settings = await getResponse.Content.ReadFromJsonAsync<CompanySettingsResponse>(JsonOptions);
@@ -66,7 +66,7 @@ public sealed class CompanySettingsIntegrationTests(ManagementApiFixture fixture
         var client = CreateManagementClient(token);
 
         await client.PutAsJsonAsync(
-            "/api/v1.0/billing/CompanySettings/Upsert",
+            "/api/v1.0/billing/company-settings",
             new UpsertCompanySettingsRequest
             {
                 CompanyName = "Defaults Co",
@@ -77,7 +77,7 @@ public sealed class CompanySettingsIntegrationTests(ManagementApiFixture fixture
             });
 
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Settings Client",
@@ -88,7 +88,7 @@ public sealed class CompanySettingsIntegrationTests(ManagementApiFixture fixture
         Assert.NotNull(createdClient);
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,

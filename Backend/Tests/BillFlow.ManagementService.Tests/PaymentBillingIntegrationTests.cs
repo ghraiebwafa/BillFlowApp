@@ -25,7 +25,7 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
         var invoice = await CreateSentInvoiceAsync(client);
 
         var partialResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoice.Id,
@@ -35,13 +35,13 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
             });
         Assert.Equal(HttpStatusCode.Created, partialResponse.StatusCode);
 
-        var invoiceAfterPartial = await client.GetAsync($"/api/v1.0/billing/Invoice/GetById/{invoice.Id}");
+        var invoiceAfterPartial = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}");
         var partialInvoice = await invoiceAfterPartial.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(partialInvoice);
         Assert.Equal(InvoiceStatus.PartiallyPaid, partialInvoice.Status);
 
         var finalResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoice.Id,
@@ -50,12 +50,12 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
             });
         Assert.Equal(HttpStatusCode.Created, finalResponse.StatusCode);
 
-        var invoiceAfterPaid = await client.GetAsync($"/api/v1.0/billing/Invoice/GetById/{invoice.Id}");
+        var invoiceAfterPaid = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}");
         var paidInvoice = await invoiceAfterPaid.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(paidInvoice);
         Assert.Equal(InvoiceStatus.Paid, paidInvoice.Status);
 
-        var paymentsResponse = await client.GetAsync($"/api/v1.0/billing/Payment/GetByInvoice/{invoice.Id}");
+        var paymentsResponse = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}/payments");
         var payments = await paymentsResponse.Content.ReadFromJsonAsync<List<PaymentResponse>>(JsonOptions);
         Assert.NotNull(payments);
         Assert.Equal(2, payments.Count);
@@ -69,7 +69,7 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
         var invoice = await CreateSentInvoiceAsync(client);
 
         var response = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoice.Id,
@@ -88,7 +88,7 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
         var invoice = await CreateSentInvoiceAsync(client);
 
         var paymentResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoice.Id,
@@ -100,10 +100,10 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
         var payment = await paymentResponse.Content.ReadFromJsonAsync<PaymentResponse>(JsonOptions);
         Assert.NotNull(payment);
 
-        var refundResponse = await client.PostAsync($"/api/v1.0/billing/Payment/Refund/{payment.Id}", null);
+        var refundResponse = await client.PostAsync($"/api/v1.0/billing/payments/{payment.Id}/refund", null);
         Assert.Equal(HttpStatusCode.OK, refundResponse.StatusCode);
 
-        var invoiceResponse = await client.GetAsync($"/api/v1.0/billing/Invoice/GetById/{invoice.Id}");
+        var invoiceResponse = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}");
         var updatedInvoice = await invoiceResponse.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(updatedInvoice);
         Assert.Equal(InvoiceStatus.Sent, updatedInvoice.Status);
@@ -112,7 +112,7 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
     private async Task<InvoiceDetailResponse> CreateSentInvoiceAsync(HttpClient client)
     {
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Payment Client",
@@ -123,7 +123,7 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(createdClient);
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -141,9 +141,9 @@ public sealed class PaymentBillingIntegrationTests(ManagementApiFixture fixture)
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
 
-        var sentResponse = await client.GetAsync($"/api/v1.0/billing/Invoice/GetById/{invoice.Id}");
+        var sentResponse = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}");
         var sentInvoice = await sentResponse.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(sentInvoice);
         Assert.Equal(InvoiceStatus.Sent, sentInvoice.Status);

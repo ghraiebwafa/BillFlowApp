@@ -23,7 +23,7 @@ public sealed class ClientBillingIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
 
         var createResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Acme Corp",
@@ -44,18 +44,18 @@ public sealed class ClientBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal("US", created.Country);
         Assert.Equal("TAX-12345", created.TaxNumber);
 
-        var listResponse = await client.GetAsync("/api/v1.0/billing/Client/GetAll");
+        var listResponse = await client.GetAsync("/api/v1.0/billing/clients");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
         var clients = await listResponse.Content.ReadFromJsonAsync<List<ClientResponse>>(JsonOptions);
         Assert.NotNull(clients);
         Assert.Contains(clients, c => c.Id == created.Id);
 
-        var getResponse = await client.GetAsync($"/api/v1.0/billing/Client/GetById/{created.Id}");
+        var getResponse = await client.GetAsync($"/api/v1.0/billing/clients/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
 
         var updateResponse = await client.PutAsJsonAsync(
-            $"/api/v1.0/billing/Client/Update/{created.Id}",
+            $"/api/v1.0/billing/clients/{created.Id}",
             new UpdateClientRequest
             {
                 CompanyName = "Acme Corporation",
@@ -71,7 +71,7 @@ public sealed class ClientBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal("Acme Corporation", updated.CompanyName);
         Assert.Equal("CA", updated.Country);
 
-        var deleteResponse = await client.DeleteAsync($"/api/v1.0/billing/Client/Delete/{created.Id}");
+        var deleteResponse = await client.DeleteAsync($"/api/v1.0/billing/clients/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
     }
 
@@ -89,11 +89,11 @@ public sealed class ClientBillingIntegrationTests(ManagementApiFixture fixture)
             Email = email,
         };
 
-        var first = await client.PostAsJsonAsync("/api/v1.0/billing/Client/Create", request);
+        var first = await client.PostAsJsonAsync("/api/v1.0/billing/clients", request);
         Assert.Equal(HttpStatusCode.Created, first.StatusCode);
 
         request.CompanyName = "Second Co";
-        var second = await client.PostAsJsonAsync("/api/v1.0/billing/Client/Create", request);
+        var second = await client.PostAsJsonAsync("/api/v1.0/billing/clients", request);
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
 
@@ -117,7 +117,7 @@ public sealed class ClientBillingIntegrationTests(ManagementApiFixture fixture)
         managementClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
-        var response = await managementClient.GetAsync("/api/v1.0/billing/Client/GetAll");
+        var response = await managementClient.GetAsync("/api/v1.0/billing/clients");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 

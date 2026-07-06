@@ -24,7 +24,7 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
 
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Portal Client",
@@ -35,7 +35,7 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(createdClient);
 
         await client.PutAsJsonAsync(
-            "/api/v1.0/billing/CompanySettings/Upsert",
+            "/api/v1.0/billing/company-settings",
             new UpsertCompanySettingsRequest
             {
                 CompanyName = "Portal Test Co",
@@ -46,7 +46,7 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
             });
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -64,12 +64,12 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        var sendResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        var sendResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
 
         // Draft invoices can't be shared
         var draftInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -78,18 +78,18 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
             });
         var draftResult = await draftInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(draftResult);
-        var draftShareResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{draftResult.Id}", null);
+        var draftShareResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{draftResult.Id}/share-link", null);
         Assert.Equal(HttpStatusCode.BadRequest, draftShareResponse.StatusCode);
 
         // Generate share link
-        var shareResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoice.Id}", null);
+        var shareResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/share-link", null);
         Assert.Equal(HttpStatusCode.Created, shareResponse.StatusCode);
         var shareLink = await shareResponse.Content.ReadFromJsonAsync<ShareLinkResponse>(JsonOptions);
         Assert.NotNull(shareLink);
         Assert.False(string.IsNullOrEmpty(shareLink.Token));
 
         // Second call indicates link is already active (token not returned again)
-        var shareResponse2 = await client.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoice.Id}", null);
+        var shareResponse2 = await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/share-link", null);
         Assert.Equal(HttpStatusCode.OK, shareResponse2.StatusCode);
         var shareLink2 = await shareResponse2.Content.ReadFromJsonAsync<ShareLinkResponse>(JsonOptions);
         Assert.NotNull(shareLink2);
@@ -120,7 +120,7 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal(HttpStatusCode.NotFound, invalidResponse.StatusCode);
 
         // Revoke share link
-        var revokeResponse = await client.DeleteAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoice.Id}");
+        var revokeResponse = await client.DeleteAsync($"/api/v1.0/billing/invoices/{invoice.Id}/share-link");
         Assert.Equal(HttpStatusCode.OK, revokeResponse.StatusCode);
 
         // Revoked token no longer works
@@ -128,7 +128,7 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal(HttpStatusCode.NotFound, revokedPortalResponse.StatusCode);
 
         // Verify audit trail includes portal events
-        var activityResponse = await client.GetAsync("/api/v1.0/billing/Activity/GetRecent?limit=50");
+        var activityResponse = await client.GetAsync("/api/v1.0/billing/activity?limit=50");
         var events = await activityResponse.Content.ReadFromJsonAsync<List<AuditEventResponse>>(JsonOptions);
         Assert.NotNull(events);
         Assert.Contains(events, e => e.Action == AuditAction.ShareLinkCreated);
@@ -144,7 +144,7 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
 
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Cancel Portal Client",
@@ -155,7 +155,7 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(createdClient);
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -172,13 +172,13 @@ public sealed class CustomerPortalIntegrationTests(ManagementApiFixture fixture)
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
 
-        var shareResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoice.Id}", null);
+        var shareResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/share-link", null);
         var shareLink = await shareResponse.Content.ReadFromJsonAsync<ShareLinkResponse>(JsonOptions);
         Assert.NotNull(shareLink?.Token);
 
-        await client.PostAsync($"/api/v1.0/billing/Invoice/Cancel/{invoice.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/cancel", null);
 
         var portalClient = fixture.ManagementFactory.CreateClient();
         var portalResponse = await portalClient.GetAsync($"/api/v1.0/portal/{shareLink.Token}");

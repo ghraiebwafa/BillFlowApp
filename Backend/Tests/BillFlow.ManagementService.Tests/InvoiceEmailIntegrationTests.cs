@@ -24,7 +24,7 @@ public sealed class InvoiceEmailIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
 
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Email Client",
@@ -35,7 +35,7 @@ public sealed class InvoiceEmailIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(createdClient);
 
         await client.PutAsJsonAsync(
-            "/api/v1.0/billing/CompanySettings/Upsert",
+            "/api/v1.0/billing/company-settings",
             new UpsertCompanySettingsRequest
             {
                 CompanyName = "Branded BillFlow Co",
@@ -46,7 +46,7 @@ public sealed class InvoiceEmailIntegrationTests(ManagementApiFixture fixture)
             });
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -64,17 +64,17 @@ public sealed class InvoiceEmailIntegrationTests(ManagementApiFixture fixture)
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        var sendResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        var sendResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
 
-        var emailResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/Email/{invoice.Id}", null);
+        var emailResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/email", null);
         Assert.Equal(HttpStatusCode.OK, emailResponse.StatusCode);
 
         var emailBody = await emailResponse.Content.ReadFromJsonAsync<MessageResponse>(JsonOptions);
         Assert.NotNull(emailBody);
         Assert.Contains("SMTP", emailBody.Message, StringComparison.OrdinalIgnoreCase);
 
-        var activityResponse = await client.GetAsync("/api/v1.0/billing/Activity/GetRecent?limit=20");
+        var activityResponse = await client.GetAsync("/api/v1.0/billing/activity?limit=20");
         var events = await activityResponse.Content.ReadFromJsonAsync<List<AuditEventResponse>>(JsonOptions);
         Assert.NotNull(events);
         Assert.Contains(events, e => e.Action == AuditAction.Sent);

@@ -25,7 +25,7 @@ public sealed class AuditTrailIntegrationTests(ManagementApiFixture fixture)
         var companyName = $"Audit Client {Guid.NewGuid():N}";
 
         var createResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = companyName,
@@ -35,7 +35,7 @@ public sealed class AuditTrailIntegrationTests(ManagementApiFixture fixture)
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
 
-        var activityResponse = await client.GetAsync("/api/v1.0/billing/Activity/GetRecent?limit=10");
+        var activityResponse = await client.GetAsync("/api/v1.0/billing/activity?limit=10");
         Assert.Equal(HttpStatusCode.OK, activityResponse.StatusCode);
 
         var events = await activityResponse.Content.ReadFromJsonAsync<List<AuditEventResponse>>(JsonOptions);

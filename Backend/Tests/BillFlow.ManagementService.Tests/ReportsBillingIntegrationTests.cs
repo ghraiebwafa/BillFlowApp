@@ -25,7 +25,7 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
         var invoiceNumber = await CreateSentInvoiceAsync(client);
 
-        var response = await client.GetAsync("/api/v1.0/billing/Reports/ExportSales?format=Csv");
+        var response = await client.GetAsync("/api/v1.0/billing/reports/sales?format=Csv");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);
 
@@ -43,7 +43,7 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
         var invoice = await CreateSentInvoiceWithTotalAsync(client);
 
         await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoice.Id,
@@ -51,7 +51,7 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
                 Method = PaymentMethod.Cash,
             });
 
-        var response = await client.GetAsync("/api/v1.0/billing/Reports/ExportPayments?format=Xlsx");
+        var response = await client.GetAsync("/api/v1.0/billing/reports/payments?format=Xlsx");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -71,7 +71,7 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
         var invoice = await CreateSentInvoiceWithTotalAsync(client);
 
         await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoice.Id,
@@ -79,7 +79,7 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
                 Method = PaymentMethod.Cash,
             });
 
-        var response = await client.GetAsync("/api/v1.0/billing/Reports/ExportOutstanding?format=Csv");
+        var response = await client.GetAsync("/api/v1.0/billing/reports/outstanding?format=Csv");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var csv = Encoding.UTF8.GetString(await response.Content.ReadAsByteArrayAsync());
@@ -96,7 +96,7 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
     private async Task<InvoiceDetailResponse> CreateSentInvoiceWithTotalAsync(HttpClient client)
     {
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Sales Client",
@@ -107,7 +107,7 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(createdClient);
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -125,9 +125,9 @@ public sealed class ReportsBillingIntegrationTests(ManagementApiFixture fixture)
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
 
-        var sentResponse = await client.GetAsync($"/api/v1.0/billing/Invoice/GetById/{invoice.Id}");
+        var sentResponse = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}");
         return (await sentResponse.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions))!;
     }
 

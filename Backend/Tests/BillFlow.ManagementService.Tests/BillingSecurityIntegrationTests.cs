@@ -24,11 +24,11 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
 
         var endpoints = new[]
         {
-            "/api/v1.0/billing/Client/GetAll",
-            "/api/v1.0/billing/Item/GetAll",
-            "/api/v1.0/billing/Invoice/GetAll",
-            "/api/v1.0/billing/Dashboard/GetSummary",
-            "/api/v1.0/billing/Reports/ExportSales",
+            "/api/v1.0/billing/clients",
+            "/api/v1.0/billing/items",
+            "/api/v1.0/billing/invoices",
+            "/api/v1.0/billing/dashboard",
+            "/api/v1.0/billing/reports/sales",
         };
 
         foreach (var endpoint in endpoints)
@@ -44,7 +44,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var token = await LoginSuperAdminAsync();
         var client = CreateManagementClient(token);
 
-        var response = await client.GetAsync("/api/v1.0/billing/Client/GetAll");
+        var response = await client.GetAsync("/api/v1.0/billing/clients");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
@@ -55,7 +55,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var ownerAClient = CreateManagementClient(ownerAToken);
 
         var createResponse = await ownerAClient.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Owner A Client",
@@ -69,7 +69,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var ownerBToken = await RegisterAndLoginVisitorAsync();
         var ownerBClient = CreateManagementClient(ownerBToken);
 
-        var getResponse = await ownerBClient.GetAsync($"/api/v1.0/billing/Client/GetById/{created.Id}");
+        var getResponse = await ownerBClient.GetAsync($"/api/v1.0/billing/clients/{created.Id}");
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
     }
 
@@ -83,10 +83,10 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var ownerBToken = await RegisterAndLoginVisitorAsync();
         var ownerBClient = CreateManagementClient(ownerBToken);
 
-        var getResponse = await ownerBClient.GetAsync($"/api/v1.0/billing/Invoice/GetById/{invoiceId}");
+        var getResponse = await ownerBClient.GetAsync($"/api/v1.0/billing/invoices/{invoiceId}");
         Assert.Equal(HttpStatusCode.NotFound, getResponse.StatusCode);
 
-        var pdfResponse = await ownerBClient.GetAsync($"/api/v1.0/billing/Invoice/DownloadPdf/{invoiceId}");
+        var pdfResponse = await ownerBClient.GetAsync($"/api/v1.0/billing/invoices/{invoiceId}/pdf");
         Assert.Equal(HttpStatusCode.NotFound, pdfResponse.StatusCode);
     }
 
@@ -101,7 +101,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var ownerBClient = CreateManagementClient(ownerBToken);
 
         var response = await ownerBClient.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoiceId,
@@ -119,7 +119,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var client = CreateManagementClient(token);
 
         var response = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "   ",
@@ -138,7 +138,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var email = $"reuse-{Guid.NewGuid():N}@billflow.test";
 
         var createResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "First Client",
@@ -149,11 +149,11 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var created = await createResponse.Content.ReadFromJsonAsync<ClientResponse>(JsonOptions);
         Assert.NotNull(created);
 
-        var deleteResponse = await client.DeleteAsync($"/api/v1.0/billing/Client/Delete/{created.Id}");
+        var deleteResponse = await client.DeleteAsync($"/api/v1.0/billing/clients/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
 
         var recreateResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Second Client",
@@ -170,10 +170,10 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var client = CreateManagementClient(token);
         var invoiceId = await CreateSentInvoiceAsync(client, total: 110m);
 
-        var markPaidResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/MarkPaid/{invoiceId}", null);
+        var markPaidResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{invoiceId}/mark-paid", null);
         Assert.Equal(HttpStatusCode.OK, markPaidResponse.StatusCode);
 
-        var dashboardResponse = await client.GetAsync("/api/v1.0/billing/Dashboard/GetSummary");
+        var dashboardResponse = await client.GetAsync("/api/v1.0/billing/dashboard");
         Assert.Equal(HttpStatusCode.OK, dashboardResponse.StatusCode);
 
         var dashboard = await dashboardResponse.Content.ReadFromJsonAsync<DashboardResponse>(JsonOptions);
@@ -188,7 +188,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var client = CreateManagementClient(token);
 
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Draft PDF Client",
@@ -199,7 +199,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         Assert.NotNull(createdClient);
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -216,7 +216,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        var response = await client.GetAsync($"/api/v1.0/billing/Invoice/DownloadPdf/{invoice.Id}");
+        var response = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}/pdf");
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -227,16 +227,16 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var ownerAClient = CreateManagementClient(ownerAToken);
         var invoiceId = await CreateSentInvoiceAsync(ownerAClient);
 
-        var shareResponse = await ownerAClient.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoiceId}", null);
+        var shareResponse = await ownerAClient.PostAsync($"/api/v1.0/billing/invoices/{invoiceId}/share-link", null);
         Assert.Equal(HttpStatusCode.Created, shareResponse.StatusCode);
 
         var ownerBToken = await RegisterAndLoginVisitorAsync();
         var ownerBClient = CreateManagementClient(ownerBToken);
 
-        var revokeResponse = await ownerBClient.DeleteAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoiceId}");
+        var revokeResponse = await ownerBClient.DeleteAsync($"/api/v1.0/billing/invoices/{invoiceId}/share-link");
         Assert.Equal(HttpStatusCode.NotFound, revokeResponse.StatusCode);
 
-        var generateResponse = await ownerBClient.PostAsync($"/api/v1.0/billing/Invoice/ShareLink/{invoiceId}", null);
+        var generateResponse = await ownerBClient.PostAsync($"/api/v1.0/billing/invoices/{invoiceId}/share-link", null);
         Assert.Equal(HttpStatusCode.NotFound, generateResponse.StatusCode);
     }
 
@@ -247,7 +247,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var client = CreateManagementClient(token);
         await CreateSentInvoiceAsync(client, total: 110m);
 
-        var response = await client.GetAsync("/api/v1.0/billing/Reports/ExportTaxes?format=Csv");
+        var response = await client.GetAsync("/api/v1.0/billing/reports/taxes?format=Csv");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/csv", response.Content.Headers.ContentType?.MediaType);
     }
@@ -255,7 +255,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
     private async Task<Guid> CreateSentInvoiceAsync(HttpClient client, decimal total = 110m)
     {
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Security Client",
@@ -267,7 +267,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
 
         var unitPrice = total / 1.1m;
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -285,7 +285,7 @@ public sealed class BillingSecurityIntegrationTests(ManagementApiFixture fixture
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
         return invoice.Id;
     }
 

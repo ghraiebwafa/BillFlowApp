@@ -28,7 +28,7 @@ public sealed class DashboardBillingIntegrationTests(ManagementApiFixture fixtur
         var invoice = await CreateSentInvoiceAsync(client, billingClient.Id, 200m, 10m);
 
         await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Payment/Create",
+            "/api/v1.0/billing/payments",
             new CreatePaymentRequest
             {
                 InvoiceId = invoice.Id,
@@ -36,7 +36,7 @@ public sealed class DashboardBillingIntegrationTests(ManagementApiFixture fixtur
                 Method = PaymentMethod.BankTransfer,
             });
 
-        var response = await client.GetAsync("/api/v1.0/billing/Dashboard/GetSummary");
+        var response = await client.GetAsync("/api/v1.0/billing/dashboard");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var dashboard = await response.Content.ReadFromJsonAsync<DashboardResponse>(JsonOptions);
@@ -73,14 +73,14 @@ public sealed class DashboardBillingIntegrationTests(ManagementApiFixture fixtur
         managementClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", auth.AccessToken);
 
-        var response = await managementClient.GetAsync("/api/v1.0/billing/Dashboard/GetSummary");
+        var response = await managementClient.GetAsync("/api/v1.0/billing/dashboard");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     private async Task<ClientResponse> CreateClientAsync(HttpClient client, string companyName)
     {
         var response = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = companyName,
@@ -100,7 +100,7 @@ public sealed class DashboardBillingIntegrationTests(ManagementApiFixture fixtur
         decimal taxRate)
     {
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = clientId,
@@ -119,9 +119,9 @@ public sealed class DashboardBillingIntegrationTests(ManagementApiFixture fixtur
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
 
-        var sentResponse = await client.GetAsync($"/api/v1.0/billing/Invoice/GetById/{invoice.Id}");
+        var sentResponse = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}");
         return (await sentResponse.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions))!;
     }
 

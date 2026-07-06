@@ -23,7 +23,7 @@ public sealed class InvoicePdfIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
 
         var billingClient = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "PDF Client",
@@ -34,7 +34,7 @@ public sealed class InvoicePdfIntegrationTests(ManagementApiFixture fixture)
         Assert.NotNull(createdClient);
 
         var createInvoice = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = createdClient.Id,
@@ -53,9 +53,9 @@ public sealed class InvoicePdfIntegrationTests(ManagementApiFixture fixture)
         var invoice = await createInvoice.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(invoice);
 
-        await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{invoice.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/invoices/{invoice.Id}/send", null);
 
-        var response = await client.GetAsync($"/api/v1.0/billing/Invoice/DownloadPdf/{invoice.Id}");
+        var response = await client.GetAsync($"/api/v1.0/billing/invoices/{invoice.Id}/pdf");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/pdf", response.Content.Headers.ContentType?.MediaType);
 

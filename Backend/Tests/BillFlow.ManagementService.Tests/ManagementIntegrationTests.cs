@@ -52,7 +52,7 @@ public sealed class ManagementIntegrationTests(ManagementApiFixture fixture)
 
         var adminEmail = $"admin-{Guid.NewGuid():N}@billflow.test";
         var createResponse = await managementClient.PostAsJsonAsync(
-            "/api/v1.0/management/Admin/Create",
+            "/api/v1.0/management/admins",
             new CreateAdminRequest
             {
                 FullName = "Integration Admin",

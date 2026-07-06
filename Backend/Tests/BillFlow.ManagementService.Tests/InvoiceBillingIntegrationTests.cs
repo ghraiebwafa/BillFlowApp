@@ -27,7 +27,7 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
         var item = await CreateItemAsync(client);
 
         var createResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = billingClient.Id,
@@ -62,7 +62,7 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal(275m, created.Total);
         Assert.Equal(2, created.LineItems.Count);
 
-        var sendResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/Send/{created.Id}", null);
+        var sendResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{created.Id}/send", null);
         Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
 
         var sent = await sendResponse.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
@@ -70,7 +70,7 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal(InvoiceStatus.Sent, sent.Status);
 
         var updateResponse = await client.PutAsJsonAsync(
-            $"/api/v1.0/billing/Invoice/Update/{created.Id}",
+            $"/api/v1.0/billing/invoices/{created.Id}",
             new UpdateInvoiceRequest
             {
                 ClientId = billingClient.Id,
@@ -87,14 +87,14 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
             });
         Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
 
-        var paidResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/MarkPaid/{created.Id}", null);
+        var paidResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{created.Id}/mark-paid", null);
         Assert.Equal(HttpStatusCode.OK, paidResponse.StatusCode);
 
         var paid = await paidResponse.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
         Assert.NotNull(paid);
         Assert.Equal(InvoiceStatus.Paid, paid.Status);
 
-        var duplicateResponse = await client.PostAsync($"/api/v1.0/billing/Invoice/Duplicate/{created.Id}", null);
+        var duplicateResponse = await client.PostAsync($"/api/v1.0/billing/invoices/{created.Id}/duplicate", null);
         Assert.Equal(HttpStatusCode.Created, duplicateResponse.StatusCode);
 
         var duplicate = await duplicateResponse.Content.ReadFromJsonAsync<InvoiceDetailResponse>(JsonOptions);
@@ -102,7 +102,7 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal(InvoiceStatus.Draft, duplicate.Status);
         Assert.NotEqual(created.InvoiceNumber, duplicate.InvoiceNumber);
 
-        var listResponse = await client.GetAsync("/api/v1.0/billing/Invoice/GetAll?status=Draft");
+        var listResponse = await client.GetAsync("/api/v1.0/billing/invoices?status=Draft");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
         var summaries = await listResponse.Content.ReadFromJsonAsync<List<InvoiceSummaryResponse>>(JsonOptions);
@@ -118,7 +118,7 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
         var billingClient = await CreateClientAsync(client);
 
         var response = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Invoice/Create",
+            "/api/v1.0/billing/invoices",
             new CreateInvoiceRequest
             {
                 ClientId = billingClient.Id,
@@ -141,7 +141,7 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
     private async Task<ClientResponse> CreateClientAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Client/Create",
+            "/api/v1.0/billing/clients",
             new CreateClientRequest
             {
                 CompanyName = "Invoice Client Co",
@@ -158,7 +158,7 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
     private async Task<ItemResponse> CreateItemAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Item/Create",
+            "/api/v1.0/billing/items",
             new CreateItemRequest
             {
                 Name = "Consulting Hour",

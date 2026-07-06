@@ -23,7 +23,7 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
 
         var createResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Item/Create",
+            "/api/v1.0/billing/items",
             new CreateItemRequest
             {
                 Name = "Web Development",
@@ -45,7 +45,7 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal("Services", created.Category);
         Assert.Equal("hour", created.Unit);
 
-        var listResponse = await client.GetAsync("/api/v1.0/billing/Item/GetAll?search=web");
+        var listResponse = await client.GetAsync("/api/v1.0/billing/items?search=web");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
         var items = await listResponse.Content.ReadFromJsonAsync<List<ItemResponse>>(JsonOptions);
@@ -53,7 +53,7 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Contains(items, i => i.Id == created.Id);
 
         var updateResponse = await client.PutAsJsonAsync(
-            $"/api/v1.0/billing/Item/Update/{created.Id}",
+            $"/api/v1.0/billing/items/{created.Id}",
             new UpdateItemRequest
             {
                 Name = "Web Development Pro",
@@ -68,21 +68,21 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
 
         var archiveResponse = await client.PostAsync(
-            $"/api/v1.0/billing/Item/Archive/{created.Id}",
+            $"/api/v1.0/billing/items/{created.Id}/archive",
             null);
         Assert.Equal(HttpStatusCode.OK, archiveResponse.StatusCode);
 
-        var archivedListResponse = await client.GetAsync("/api/v1.0/billing/Item/GetAll");
+        var archivedListResponse = await client.GetAsync("/api/v1.0/billing/items");
         var activeItems = await archivedListResponse.Content.ReadFromJsonAsync<List<ItemResponse>>(JsonOptions);
         Assert.NotNull(activeItems);
         Assert.DoesNotContain(activeItems, i => i.Id == created.Id);
 
-        var includeArchivedResponse = await client.GetAsync("/api/v1.0/billing/Item/GetAll?includeArchived=true");
+        var includeArchivedResponse = await client.GetAsync("/api/v1.0/billing/items?includeArchived=true");
         var allItems = await includeArchivedResponse.Content.ReadFromJsonAsync<List<ItemResponse>>(JsonOptions);
         Assert.NotNull(allItems);
         Assert.Contains(allItems, i => i.Id == created.Id && i.IsArchived);
 
-        var deleteResponse = await client.DeleteAsync($"/api/v1.0/billing/Item/Delete/{created.Id}");
+        var deleteResponse = await client.DeleteAsync($"/api/v1.0/billing/items/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
     }
 
@@ -93,7 +93,7 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         var client = CreateManagementClient(token);
 
         var createResponse = await client.PostAsJsonAsync(
-            "/api/v1.0/billing/Item/Create",
+            "/api/v1.0/billing/items",
             new CreateItemRequest
             {
                 Name = "Archived Service",
@@ -102,10 +102,10 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         var created = await createResponse.Content.ReadFromJsonAsync<ItemResponse>(JsonOptions);
         Assert.NotNull(created);
 
-        await client.PostAsync($"/api/v1.0/billing/Item/Archive/{created.Id}", null);
+        await client.PostAsync($"/api/v1.0/billing/items/{created.Id}/archive", null);
 
         var updateResponse = await client.PutAsJsonAsync(
-            $"/api/v1.0/billing/Item/Update/{created.Id}",
+            $"/api/v1.0/billing/items/{created.Id}",
             new UpdateItemRequest
             {
                 Name = "Should Fail",
