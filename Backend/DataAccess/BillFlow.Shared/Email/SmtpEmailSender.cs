@@ -51,6 +51,14 @@ public sealed class SmtpEmailSender(SmtpOptions options, ILogger<SmtpEmailSender
 
             if (!string.IsNullOrWhiteSpace(options.Username))
             {
+                if (string.IsNullOrWhiteSpace(options.Password))
+                {
+                    return new EmailSendResult(
+                        false,
+                        Skipped: false,
+                        Detail: "SMTP password is required when username is configured.");
+                }
+
                 await client.AuthenticateAsync(options.Username, options.Password, cancellationToken);
             }
 
