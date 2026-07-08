@@ -12,16 +12,30 @@ public sealed class ClientBillingService(
     IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : IClientBillingService
 {
-    public async Task<OperationResult<IReadOnlyList<ClientResponse>>> GetAllAsync(
+    public async Task<OperationResult<PagedResponse<ClientResponse>>> GetAllAsync(
         string? search = null,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<ClientResponse>>(currentUser);
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<PagedResponse<ClientResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        var clients = await clientRepository.GetAllAsync(ownerId.Value!.Value, search, cancellationToken);
-        return OperationResult<IReadOnlyList<ClientResponse>>.Ok(clients.Select(Map).ToList());
+        var (normalizedPage, normalizedPageSize) = BillingPaging.Normalize(page, pageSize);
+        var result = await clientRepository.GetPagedAsync(
+            ownerId.Value!.Value,
+            search,
+            normalizedPage,
+            normalizedPageSize,
+            cancellationToken);
+
+        return OperationResult<PagedResponse<ClientResponse>>.Ok(
+            PagedResponse<ClientResponse>.Create(
+                result.Items.Select(Map).ToList(),
+                result.TotalCount,
+                normalizedPage,
+                normalizedPageSize));
     }
 
     public async Task<OperationResult<ClientResponse>> GetByIdAsync(

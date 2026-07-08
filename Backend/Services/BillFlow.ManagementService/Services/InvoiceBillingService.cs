@@ -28,22 +28,36 @@ public sealed class InvoiceBillingService(
     private const string DefaultInvoicePrefix = "INV";
     private const int DefaultPaymentTermsDays = 30;
 
-    public async Task<OperationResult<IReadOnlyList<InvoiceSummaryResponse>>> GetAllAsync(
+    public async Task<OperationResult<PagedResponse<InvoiceSummaryResponse>>> GetAllAsync(
         InvoiceStatus? status = null,
+        IReadOnlyList<InvoiceStatus>? statuses = null,
         string? search = null,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<InvoiceSummaryResponse>>(currentUser);
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<PagedResponse<InvoiceSummaryResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
-        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
+        var (normalizedPage, normalizedPageSize) = BillingPaging.Normalize(page, pageSize);
 
-        var invoices = await invoiceRepository.GetAllAsync(owner, status, search, cancellationToken);
+        var result = await invoiceRepository.GetPagedAsync(
+            owner,
+            status,
+            statuses,
+            search,
+            normalizedPage,
+            normalizedPageSize,
+            cancellationToken);
 
-        return OperationResult<IReadOnlyList<InvoiceSummaryResponse>>.Ok(
-            invoices.Select(MapSummary).ToList());
+        return OperationResult<PagedResponse<InvoiceSummaryResponse>>.Ok(
+            PagedResponse<InvoiceSummaryResponse>.Create(
+                result.Items.Select(MapSummary).ToList(),
+                result.TotalCount,
+                normalizedPage,
+                normalizedPageSize));
     }
 
     public async Task<OperationResult<InvoiceDetailResponse>> GetByIdAsync(
@@ -55,7 +69,6 @@ public sealed class InvoiceBillingService(
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
-        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
 
         var invoice = await invoiceRepository.GetByIdAsync(
             owner,
@@ -396,7 +409,6 @@ public sealed class InvoiceBillingService(
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
-        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
 
         var invoice = await invoiceRepository.GetByIdAsync(
             owner,
@@ -494,7 +506,6 @@ public sealed class InvoiceBillingService(
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
-        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
 
         var invoice = await invoiceRepository.GetByIdAsync(
             owner,
@@ -725,25 +736,29 @@ public sealed class InvoiceBillingService(
         IReadOnlyList<InvoiceLineItemRequest> lineItems,
         CancellationToken cancellationToken)
     {
-        foreach (var lineItem in lineItems)
+        var itemIds = lineItems
+            .Where(l => l.ItemId is not null)
+            .Select(l => l.ItemId!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (itemIds.Length == 0)
+            return null;
+
+        var items = await itemRepository.GetByIdsAsync(ownerId, itemIds, cancellationToken);
+        if (items.Count != itemIds.Length)
         {
-            if (lineItem.ItemId is null)
-                continue;
+            return OperationResult<InvoiceDetailResponse>.Fail(
+                "One or more catalog items were not found.",
+                StatusCodes.Status404NotFound);
+        }
 
-            var item = await itemRepository.GetByIdAsync(ownerId, lineItem.ItemId.Value, cancellationToken);
-            if (item is null)
-            {
-                return OperationResult<InvoiceDetailResponse>.Fail(
-                    "One or more catalog items were not found.",
-                    StatusCodes.Status404NotFound);
-            }
-
-            if (!item.IsActive || item.IsArchived)
-            {
-                return OperationResult<InvoiceDetailResponse>.Fail(
-                    $"Item '{item.Name}' is archived or inactive and cannot be used on invoices.",
-                    StatusCodes.Status400BadRequest);
-            }
+        var inactive = items.FirstOrDefault(i => !i.IsActive || i.IsArchived);
+        if (inactive is not null)
+        {
+            return OperationResult<InvoiceDetailResponse>.Fail(
+                $"Item '{inactive.Name}' is archived or inactive and cannot be used on invoices.",
+                StatusCodes.Status400BadRequest);
         }
 
         return null;

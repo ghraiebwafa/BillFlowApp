@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MoreVertical, Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
+import { buildPageQuery, type PagedResponse } from "../../../domain/billing/paging";
+import { clientResponseSchema } from "../../../domain/billing/schemas";
 import { clientInitial, type ClientResponse } from "../../../domain/billing/client";
 
 function useDebouncedValue(value: string, delayMs = 300): string {
@@ -19,6 +22,13 @@ function useDebouncedValue(value: string, delayMs = 300): string {
   return debounced;
 }
 
+const pagedClientSchema = z.object({
+  items: z.array(clientResponseSchema),
+  totalCount: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+
 export function ClientsPage() {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -26,15 +36,18 @@ export function ClientsPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["clients", debouncedSearch],
-    queryFn: () => {
-      const params = debouncedSearch.trim()
-        ? `?search=${encodeURIComponent(debouncedSearch.trim())}`
-        : "";
-      return managementRequest<ClientResponse[]>(`${billingApi.clients}${params}`);
-    },
+    queryFn: () =>
+      managementRequest<PagedResponse<ClientResponse>>(
+        `${billingApi.clients}${buildPageQuery({
+          search: debouncedSearch,
+          page: 1,
+          pageSize: 50,
+        })}`,
+        { schema: pagedClientSchema },
+      ),
   });
 
-  const clients = data ?? [];
+  const clients = data?.items ?? [];
 
   return (
     <section className="app-screen space-y-4">

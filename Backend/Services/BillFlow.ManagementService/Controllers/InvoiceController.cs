@@ -22,9 +22,13 @@ public class InvoiceController(
     [HttpGet]
     public Task<IActionResult> GetAll(
         [FromQuery] InvoiceStatus? status,
+        [FromQuery] List<InvoiceStatus>? statuses,
         [FromQuery] string? search,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
         CancellationToken cancellationToken) =>
-        invoiceService.GetAllAsync(status, search, cancellationToken).ToBillingActionResult();
+        invoiceService.GetAllAsync(status, statuses, search, page, pageSize, cancellationToken)
+            .ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("{id:guid}")]

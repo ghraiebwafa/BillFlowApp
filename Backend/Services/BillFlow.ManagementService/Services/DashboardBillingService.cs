@@ -6,7 +6,6 @@ namespace BillFlow.ManagementService.Services;
 
 public sealed class DashboardBillingService(
     IDashboardRepository dashboardRepository,
-    IInvoiceRepository invoiceRepository,
     ICurrentUserAccessor currentUser) : IDashboardBillingService
 {
     public async Task<OperationResult<DashboardResponse>> GetSummaryAsync(
@@ -19,7 +18,6 @@ public sealed class DashboardBillingService(
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
-        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
 
         revenueMonths = Math.Clamp(revenueMonths, 1, 24);
         topClientsLimit = Math.Clamp(topClientsLimit, 1, 20);

@@ -11,10 +11,13 @@ public interface IInvoiceRepository
         bool includeDetails = false,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Invoice>> GetAllAsync(
+    Task<PagedResult<Invoice>> GetPagedAsync(
         Guid ownerId,
         InvoiceStatus? status = null,
+        IReadOnlyCollection<InvoiceStatus>? statuses = null,
         string? search = null,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default);
 
     Task<bool> InvoiceNumberExistsAsync(

@@ -18,8 +18,10 @@ public class ClientController(IClientBillingService clientService) : ControllerB
     [HttpGet]
     public Task<IActionResult> GetAll(
         [FromQuery] string? search,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
         CancellationToken cancellationToken) =>
-        clientService.GetAllAsync(search, cancellationToken).ToBillingActionResult();
+        clientService.GetAllAsync(search, page, pageSize, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("{id:guid}")]

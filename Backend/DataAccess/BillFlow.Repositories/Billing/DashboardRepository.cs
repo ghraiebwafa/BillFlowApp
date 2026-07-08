@@ -22,24 +22,39 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
         var revenueStart = monthStart.AddMonths(-(revenueMonths - 1));
         var today = utcNow.Date;
 
-        var totalRevenue = await db.Payments
+        var invoiceStats = await db.Invoices
+            .AsNoTracking()
+            .Where(i => i.OwnerId == ownerId)
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                TotalInvoices = g.Count(),
+                OverdueInvoicesCount = g.Count(i =>
+                    i.Status == InvoiceStatus.Overdue
+                    || ((i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.PartiallyPaid)
+                        && i.DueDate < today)),
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var paymentStats = await db.Payments
+            .AsNoTracking()
             .Where(p => p.OwnerId == ownerId && p.Status == PaymentStatus.Completed)
-            .SumAsync(p => p.Amount, cancellationToken);
-
-        var monthlyIncome = await db.Payments
-            .Where(p =>
-                p.OwnerId == ownerId
-                && p.Status == PaymentStatus.Completed
-                && p.PaymentDate >= monthStart)
-            .SumAsync(p => p.Amount, cancellationToken);
-
-        var totalInvoices = await db.Invoices
-            .CountAsync(i => i.OwnerId == ownerId, cancellationToken);
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                TotalRevenue = g.Sum(p => p.Amount),
+                MonthlyIncome = g
+                    .Where(p => p.PaymentDate >= monthStart)
+                    .Sum(p => p.Amount),
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
         var activeClientsCount = await db.Clients
+            .AsNoTracking()
             .CountAsync(c => c.OwnerId == ownerId && c.IsActive, cancellationToken);
 
         var openInvoices = await db.Invoices
+            .AsNoTracking()
             .Where(i =>
                 i.OwnerId == ownerId
                 && (i.Status == InvoiceStatus.Sent
@@ -54,18 +69,10 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
             })
             .ToListAsync(cancellationToken);
 
-        var pendingPaymentsAmount = openInvoices
-            .Sum(i => Math.Max(0m, i.Total - i.Paid));
-
-        var overdueInvoicesCount = await db.Invoices
-            .CountAsync(
-                i => i.OwnerId == ownerId
-                    && (i.Status == InvoiceStatus.Overdue
-                        || ((i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.PartiallyPaid)
-                            && i.DueDate < today)),
-                cancellationToken);
+        var pendingPaymentsAmount = openInvoices.Sum(i => Math.Max(0m, i.Total - i.Paid));
 
         var revenueByMonth = await db.Payments
+            .AsNoTracking()
             .Where(p =>
                 p.OwnerId == ownerId
                 && p.Status == PaymentStatus.Completed
@@ -82,6 +89,7 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
             .ToListAsync(cancellationToken);
 
         var invoicesByStatus = await db.Invoices
+            .AsNoTracking()
             .Where(i => i.OwnerId == ownerId)
             .GroupBy(i => i.Status)
             .Select(g => new DashboardStatusCount
@@ -93,6 +101,7 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
             .ToListAsync(cancellationToken);
 
         var paymentsByMethod = await db.Payments
+            .AsNoTracking()
             .Where(p => p.OwnerId == ownerId && p.Status == PaymentStatus.Completed)
             .GroupBy(p => p.Method)
             .Select(g => new DashboardPaymentMethodSummary
@@ -104,6 +113,7 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
             .ToListAsync(cancellationToken);
 
         var topClients = await db.Payments
+            .AsNoTracking()
             .Where(p => p.OwnerId == ownerId && p.Status == PaymentStatus.Completed)
             .GroupBy(p => new { p.Invoice.ClientId, p.Invoice.Client.CompanyName })
             .Select(g => new DashboardTopClient
@@ -118,12 +128,12 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
 
         return new DashboardResponse
         {
-            TotalRevenue = totalRevenue,
-            TotalInvoices = totalInvoices,
+            TotalRevenue = paymentStats?.TotalRevenue ?? 0m,
+            TotalInvoices = invoiceStats?.TotalInvoices ?? 0,
             PendingPaymentsAmount = pendingPaymentsAmount,
-            OverdueInvoicesCount = overdueInvoicesCount,
+            OverdueInvoicesCount = invoiceStats?.OverdueInvoicesCount ?? 0,
             ActiveClientsCount = activeClientsCount,
-            MonthlyIncome = monthlyIncome,
+            MonthlyIncome = paymentStats?.MonthlyIncome ?? 0m,
             RevenueByMonth = revenueByMonth,
             InvoicesByStatus = invoicesByStatus,
             PaymentsByMethod = paymentsByMethod,

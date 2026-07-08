@@ -6,9 +6,11 @@ public interface IClientRepository
 {
     Task<Client?> GetByIdAsync(Guid ownerId, Guid clientId, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Client>> GetAllAsync(
+    Task<PagedResult<Client>> GetPagedAsync(
         Guid ownerId,
         string? search = null,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default);
 
     Task<bool> EmailExistsForOwnerAsync(

@@ -6,6 +6,7 @@ import { managementRequest } from "../../../shared/api/management-client";
 import { billingApi } from "../../../domain/billing/api-paths";
 import type { DashboardResponse } from "../../../domain/billing/dashboard";
 import { ApiError } from "../../../shared/api/api-error";
+import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 
 const PAID_STATUS = 3;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -22,21 +23,17 @@ function countPaidInvoices(data: DashboardResponse): number {
   return data.invoicesByStatus.find((s) => s.status === PAID_STATUS)?.count ?? 0;
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
 export function DashboardPage() {
   const { t } = useTranslation();
+  const currency = useCompanyCurrency();
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard", "summary"],
     queryFn: () =>
       managementRequest<DashboardResponse>(billingApi.dashboard),
   });
+
+  const formatCurrency = (amount: number) =>
+    formatMoney(amount, currency, { maximumFractionDigits: 0 });
 
   const chartPoints =
     data?.revenueByMonth.slice(-6).map((point) => ({

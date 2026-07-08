@@ -11,6 +11,7 @@ import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
 import type { ClientResponse } from "../../../domain/billing/client";
 import type { InvoiceDetail } from "../../../domain/billing/invoice";
+import { buildPageQuery, type PagedResponse } from "../../../domain/billing/paging";
 import { clientResponseSchema, invoiceDetailSchema } from "../../../domain/billing/schemas";
 import { toast } from "../../../shared/ui/toast-store";
 
@@ -29,13 +30,22 @@ export function CreateInvoicePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [step, setStep] = useState<"billTo" | "items" | "summary">("billTo");
 
-  const { data: clients } = useQuery({
-    queryKey: ["clients"],
+  const { data: clientsPage } = useQuery({
+    queryKey: ["clients", "picker"],
     queryFn: () =>
-      managementRequest<ClientResponse[]>(billingApi.clients, {
-        schema: z.array(clientResponseSchema),
-      }),
+      managementRequest<PagedResponse<ClientResponse>>(
+        `${billingApi.clients}${buildPageQuery({ page: 1, pageSize: 100 })}`,
+        {
+          schema: z.object({
+            items: z.array(clientResponseSchema),
+            totalCount: z.number().int(),
+            page: z.number().int(),
+            pageSize: z.number().int(),
+          }),
+        },
+      ),
   });
+  const clients = clientsPage?.items;
 
   const { register, handleSubmit, watch, getValues } = useForm<CreateForm>({
     defaultValues: {

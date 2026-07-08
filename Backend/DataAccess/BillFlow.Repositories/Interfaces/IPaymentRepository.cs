@@ -15,8 +15,11 @@ public interface IPaymentRepository
         Guid invoiceId,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Payment>> GetAllByOwnerAsync(
+    Task<PagedResult<Payment>> GetPagedByOwnerAsync(
         Guid ownerId,
+        string? search = null,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default);
 
     Task<decimal> GetCompletedTotalForInvoiceAsync(

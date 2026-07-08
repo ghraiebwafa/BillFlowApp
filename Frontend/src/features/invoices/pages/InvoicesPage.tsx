@@ -1,19 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Filter, Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
+import { buildPageQuery, type PagedResponse } from "../../../domain/billing/paging";
+import { invoiceSummarySchema } from "../../../domain/billing/schemas";
 import {
   InvoiceStatus,
   type InvoiceSummary,
-  invoiceStatusClass,
   invoiceStatusLabel,
 } from "../../../domain/billing/invoice";
+import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 
 type FilterKey = "all" | "paid" | "unpaid" | "partial";
 
@@ -26,21 +29,10 @@ function useDebouncedValue(value: string, delayMs = 300): string {
   return debounced;
 }
 
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
-}
-
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(
     new Date(value),
   );
-}
-
-function matchesFilter(status: InvoiceStatus, filter: FilterKey): boolean {
-  if (filter === "all") return true;
-  if (filter === "paid") return status === InvoiceStatus.Paid;
-  if (filter === "partial") return status === InvoiceStatus.PartiallyPaid;
-  return status === InvoiceStatus.Sent || status === InvoiceStatus.Overdue;
 }
 
 function statusVariant(status: InvoiceStatus): "paid" | "partial" | "unpaid" | "draft" {
@@ -50,26 +42,50 @@ function statusVariant(status: InvoiceStatus): "paid" | "partial" | "unpaid" | "
   return "unpaid";
 }
 
+function filterToQuery(filter: FilterKey): {
+  status?: InvoiceStatus;
+  statuses?: InvoiceStatus[];
+} {
+  if (filter === "paid") return { status: InvoiceStatus.Paid };
+  if (filter === "partial") return { status: InvoiceStatus.PartiallyPaid };
+  if (filter === "unpaid") {
+    return { statuses: [InvoiceStatus.Sent, InvoiceStatus.Overdue] };
+  }
+  return {};
+}
+
+const pagedInvoiceSchema = z.object({
+  items: z.array(invoiceSummarySchema),
+  totalCount: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+
 export function InvoicesPage() {
   const { t } = useTranslation();
+  const currency = useCompanyCurrency();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
   const debouncedSearch = useDebouncedValue(search);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["invoices", debouncedSearch],
+    queryKey: ["invoices", debouncedSearch, filter],
     queryFn: () => {
-      const params = debouncedSearch.trim()
-        ? `?search=${encodeURIComponent(debouncedSearch.trim())}`
-        : "";
-      return managementRequest<InvoiceSummary[]>(`${billingApi.invoices}${params}`);
+      const filterQuery = filterToQuery(filter);
+      return managementRequest<PagedResponse<InvoiceSummary>>(
+        `${billingApi.invoices}${buildPageQuery({
+          search: debouncedSearch,
+          status: filterQuery.status,
+          statuses: filterQuery.statuses,
+          page: 1,
+          pageSize: 50,
+        })}`,
+        { schema: pagedInvoiceSchema },
+      );
     },
   });
 
-  const invoices = useMemo(
-    () => (data ?? []).filter((inv) => matchesFilter(inv.status, filter)),
-    [data, filter],
-  );
+  const invoices = data?.items ?? [];
 
   const filters: { key: FilterKey; labelKey: string }[] = [
     { key: "all", labelKey: "invoices.filters.all" },
@@ -127,7 +143,9 @@ export function InvoicesPage() {
                 <p className="truncate text-sm text-secondary">{invoice.clientCompanyName}</p>
                 <div className="mt-1 flex items-center justify-between text-xs text-secondary">
                   <span>{formatDate(invoice.invoiceDate)}</span>
-                  <span className="font-semibold text-primary">{formatMoney(invoice.total)}</span>
+                  <span className="font-semibold text-primary">
+                    {formatMoney(invoice.total, currency)}
+                  </span>
                 </div>
               </div>
             </Link>

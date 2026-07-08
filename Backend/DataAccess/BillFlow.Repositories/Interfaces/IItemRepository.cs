@@ -6,6 +6,11 @@ public interface IItemRepository
 {
     Task<Item?> GetByIdAsync(Guid ownerId, Guid itemId, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Item>> GetByIdsAsync(
+        Guid ownerId,
+        IReadOnlyCollection<Guid> itemIds,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Item>> GetAllAsync(
         Guid ownerId,
         string? search = null,

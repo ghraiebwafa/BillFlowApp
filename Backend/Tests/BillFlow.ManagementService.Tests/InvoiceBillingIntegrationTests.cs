@@ -105,9 +105,9 @@ public sealed class InvoiceBillingIntegrationTests(ManagementApiFixture fixture)
         var listResponse = await client.GetAsync("/api/v1.0/billing/invoices?status=Draft");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
-        var summaries = await listResponse.Content.ReadFromJsonAsync<List<InvoiceSummaryResponse>>(JsonOptions);
-        Assert.NotNull(summaries);
-        Assert.Contains(summaries, i => i.Id == duplicate.Id);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResponse<InvoiceSummaryResponse>>(JsonOptions);
+        Assert.NotNull(page);
+        Assert.Contains(page.Items, i => i.Id == duplicate.Id);
     }
 
     [Fact]

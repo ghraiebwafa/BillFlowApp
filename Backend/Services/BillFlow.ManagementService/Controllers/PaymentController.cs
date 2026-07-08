@@ -16,8 +16,12 @@ public class PaymentController(IPaymentBillingService paymentService) : Controll
 {
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet]
-    public Task<IActionResult> GetAll(CancellationToken cancellationToken) =>
-        paymentService.GetAllAsync(cancellationToken).ToBillingActionResult();
+    public Task<IActionResult> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize,
+        CancellationToken cancellationToken) =>
+        paymentService.GetAllAsync(search, page, pageSize, cancellationToken).ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost]

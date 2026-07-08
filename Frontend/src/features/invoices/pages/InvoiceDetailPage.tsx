@@ -18,6 +18,7 @@ import { paymentMethodLabel, PaymentStatus } from "../../../domain/billing/payme
 import { invoiceDetailSchema, paymentRecordSchema } from "../../../domain/billing/schemas";
 import { billingApi } from "../../../domain/billing/api-paths";
 import { toast } from "../../../shared/ui/toast-store";
+import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 
 const shareLinkSchema = z.object({
   token: z.string().optional(),
@@ -25,10 +26,6 @@ const shareLinkSchema = z.object({
   expiresAt: z.string().nullable().optional(),
   alreadyActive: z.boolean().optional(),
 });
-
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
-}
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(
@@ -54,6 +51,7 @@ function canEmailInvoice(status: InvoiceStatus): boolean {
 
 export function InvoiceDetailPage() {
   const { t } = useTranslation();
+  const currency = useCompanyCurrency();
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
 
@@ -206,15 +204,15 @@ export function InvoiceDetailPage() {
           <div className="card invoice-total-card">
             <div className="invoice-total-row">
               <span>{t("invoices.subtotal")}</span>
-              <span>{formatMoney(invoice.subtotal)}</span>
+              <span>{formatMoney(invoice.subtotal, currency)}</span>
             </div>
             <div className="invoice-total-row">
               <span>{t("invoices.tax", { rate: invoice.taxRate })}</span>
-              <span>{formatMoney(invoice.taxAmount)}</span>
+              <span>{formatMoney(invoice.taxAmount, currency)}</span>
             </div>
             <div className="invoice-total-row invoice-total-row--grand">
               <span>{t("invoices.total")}</span>
-              <span>{formatMoney(invoice.total)}</span>
+              <span>{formatMoney(invoice.total, currency)}</span>
             </div>
           </div>
 
@@ -225,9 +223,11 @@ export function InvoiceDetailPage() {
                 <li key={item.id} className="card list-row-static">
                   <p className="font-medium">{item.description}</p>
                   <p className="text-sm text-secondary">
-                    {item.quantity} × {formatMoney(item.unitPrice)}
+                    {item.quantity} × {formatMoney(item.unitPrice, currency)}
                   </p>
-                  <p className="text-right font-semibold text-accent">{formatMoney(item.lineTotal)}</p>
+                  <p className="text-right font-semibold text-accent">
+                    {formatMoney(item.lineTotal, currency)}
+                  </p>
                 </li>
               ))}
             </ul>
@@ -240,7 +240,7 @@ export function InvoiceDetailPage() {
                 {completedPayments.map((payment) => (
                   <li key={payment.id} className="card list-row-static">
                     <div className="flex justify-between gap-2">
-                      <span className="font-medium">{formatMoney(payment.amount)}</span>
+                      <span className="font-medium">{formatMoney(payment.amount, currency)}</span>
                       <StatusBadge label={t("payments.completed")} variant="completed" />
                     </div>
                     <p className="text-sm text-secondary">

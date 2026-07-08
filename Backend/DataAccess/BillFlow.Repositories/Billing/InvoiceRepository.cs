@@ -14,7 +14,9 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
         bool includeDetails = false,
         CancellationToken cancellationToken = default)
     {
-        var query = db.Invoices.AsQueryable();
+        var query = includeDetails
+            ? db.Invoices.AsQueryable()
+            : db.Invoices.AsNoTracking();
 
         if (includeDetails)
         {
@@ -28,31 +30,28 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
             cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Invoice>> GetAllAsync(
+    public async Task<PagedResult<Invoice>> GetPagedAsync(
         Guid ownerId,
         InvoiceStatus? status = null,
+        IReadOnlyCollection<InvoiceStatus>? statuses = null,
         string? search = null,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var query = db.Invoices
-            .Include(i => i.Client)
-            .Where(i => i.OwnerId == ownerId);
+        var query = BuildListQuery(ownerId, status, statuses, search);
 
-        if (status is not null)
-            query = query.Where(i => i.Status == status);
+        var totalCount = await query.CountAsync(cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var term = $"%{search.Trim()}%";
-            query = query.Where(i =>
-                EF.Functions.ILike(i.InvoiceNumber, term)
-                || EF.Functions.ILike(i.Client.CompanyName, term));
-        }
-
-        return await query
+        var items = await query
             .OrderByDescending(i => i.InvoiceDate)
             .ThenByDescending(i => i.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .AsNoTracking()
             .ToListAsync(cancellationToken);
+
+        return new PagedResult<Invoice>(items, totalCount);
     }
 
     public Task<bool> InvoiceNumberExistsAsync(
@@ -172,5 +171,31 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
         invoice.IsDeleted = true;
         invoice.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private IQueryable<Invoice> BuildListQuery(
+        Guid ownerId,
+        InvoiceStatus? status,
+        IReadOnlyCollection<InvoiceStatus>? statuses,
+        string? search)
+    {
+        var query = db.Invoices
+            .Include(i => i.Client)
+            .Where(i => i.OwnerId == ownerId);
+
+        if (statuses is { Count: > 0 })
+            query = query.Where(i => statuses.Contains(i.Status));
+        else if (status is not null)
+            query = query.Where(i => i.Status == status);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = $"%{search.Trim()}%";
+            query = query.Where(i =>
+                EF.Functions.ILike(i.InvoiceNumber, term)
+                || EF.Functions.ILike(i.Client.CompanyName, term));
+        }
+
+        return query;
     }
 }

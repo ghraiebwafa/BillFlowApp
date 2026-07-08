@@ -6,9 +6,12 @@ namespace BillFlow.ManagementService.Services;
 
 public interface IInvoiceBillingService
 {
-    Task<OperationResult<IReadOnlyList<InvoiceSummaryResponse>>> GetAllAsync(
+    Task<OperationResult<PagedResponse<InvoiceSummaryResponse>>> GetAllAsync(
         InvoiceStatus? status = null,
+        IReadOnlyList<InvoiceStatus>? statuses = null,
         string? search = null,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default);
 
     Task<OperationResult<InvoiceDetailResponse>> GetByIdAsync(

@@ -135,6 +135,8 @@ public class BillFlowDbContext : DbContext
 
             entity.HasQueryFilter(x => !x.IsDeleted);
 
+            entity.HasIndex(x => new { x.OwnerId, x.Name });
+
             entity.Property(x => x.Name)
                 .HasMaxLength(200)
                 .IsRequired();
@@ -167,6 +169,12 @@ public class BillFlowDbContext : DbContext
 
             entity.HasIndex(x => new { x.OwnerId, x.InvoiceNumber })
                 .IsUnique();
+
+            entity.HasIndex(x => new { x.OwnerId, x.Status });
+
+            entity.HasIndex(x => new { x.OwnerId, x.InvoiceDate });
+
+            entity.HasIndex(x => new { x.Status, x.DueDate });
 
             entity.Property(x => x.InvoiceNumber)
                 .HasMaxLength(50)
@@ -231,6 +239,8 @@ public class BillFlowDbContext : DbContext
             entity.HasKey(x => x.Id);
 
             entity.HasIndex(x => new { x.OwnerId, x.InvoiceId, x.PaymentDate });
+
+            entity.HasIndex(x => new { x.OwnerId, x.Status, x.PaymentDate });
 
             entity.Property(x => x.Amount)
                 .HasPrecision(18, 2);

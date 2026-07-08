@@ -15,6 +15,20 @@ public sealed class ItemRepository(BillFlowDbContext db) : IItemRepository
             i => i.OwnerId == ownerId && i.Id == itemId,
             cancellationToken);
 
+    public async Task<IReadOnlyList<Item>> GetByIdsAsync(
+        Guid ownerId,
+        IReadOnlyCollection<Guid> itemIds,
+        CancellationToken cancellationToken = default)
+    {
+        if (itemIds.Count == 0)
+            return [];
+
+        return await db.Items
+            .AsNoTracking()
+            .Where(i => i.OwnerId == ownerId && itemIds.Contains(i.Id))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Item>> GetAllAsync(
         Guid ownerId,
         string? search = null,

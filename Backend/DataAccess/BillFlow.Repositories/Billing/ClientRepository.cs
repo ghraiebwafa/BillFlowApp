@@ -16,12 +16,14 @@ public sealed class ClientRepository(BillFlowDbContext db) : IClientRepository
             c => c.OwnerId == ownerId && c.Id == clientId,
             cancellationToken);
 
-    public async Task<IReadOnlyList<Client>> GetAllAsync(
+    public async Task<PagedResult<Client>> GetPagedAsync(
         Guid ownerId,
         string? search = null,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var query = db.Clients.Where(c => c.OwnerId == ownerId);
+        var query = db.Clients.AsNoTracking().Where(c => c.OwnerId == ownerId);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -32,9 +34,15 @@ public sealed class ClientRepository(BillFlowDbContext db) : IClientRepository
                 || EF.Functions.ILike(c.Email, term));
         }
 
-        return await query
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
             .OrderBy(c => c.CompanyName)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
+
+        return new PagedResult<Client>(items, totalCount);
     }
 
     public Task<bool> EmailExistsForOwnerAsync(

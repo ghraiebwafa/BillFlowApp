@@ -47,9 +47,9 @@ public sealed class ClientBillingIntegrationTests(ManagementApiFixture fixture)
         var listResponse = await client.GetAsync("/api/v1.0/billing/clients");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
-        var clients = await listResponse.Content.ReadFromJsonAsync<List<ClientResponse>>(JsonOptions);
-        Assert.NotNull(clients);
-        Assert.Contains(clients, c => c.Id == created.Id);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResponse<ClientResponse>>(JsonOptions);
+        Assert.NotNull(page);
+        Assert.Contains(page.Items, c => c.Id == created.Id);
 
         var getResponse = await client.GetAsync($"/api/v1.0/billing/clients/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);

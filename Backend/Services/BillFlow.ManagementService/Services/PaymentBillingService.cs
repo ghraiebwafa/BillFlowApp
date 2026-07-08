@@ -37,16 +37,31 @@ public sealed class PaymentBillingService(
         return OperationResult<IReadOnlyList<PaymentResponse>>.Ok(payments.Select(Map).ToList());
     }
 
-    public async Task<OperationResult<IReadOnlyList<PaymentResponse>>> GetAllAsync(
+    public async Task<OperationResult<PagedResponse<PaymentResponse>>> GetAllAsync(
+        string? search = null,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<PaymentResponse>>(currentUser);
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<PagedResponse<PaymentResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
-        var payments = await paymentRepository.GetAllByOwnerAsync(owner, cancellationToken);
-        return OperationResult<IReadOnlyList<PaymentResponse>>.Ok(payments.Select(Map).ToList());
+        var (normalizedPage, normalizedPageSize) = BillingPaging.Normalize(page, pageSize);
+        var result = await paymentRepository.GetPagedByOwnerAsync(
+            owner,
+            search,
+            normalizedPage,
+            normalizedPageSize,
+            cancellationToken);
+
+        return OperationResult<PagedResponse<PaymentResponse>>.Ok(
+            PagedResponse<PaymentResponse>.Create(
+                result.Items.Select(Map).ToList(),
+                result.TotalCount,
+                normalizedPage,
+                normalizedPageSize));
     }
 
     public async Task<OperationResult<PaymentResponse>> CreateAsync(
@@ -58,8 +73,6 @@ public sealed class PaymentBillingService(
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
-
-        await invoiceRepository.SyncOverdueStatusesAsync(owner, cancellationToken);
 
         var invoice = await invoiceRepository.GetByIdAsync(owner, request.InvoiceId, cancellationToken: cancellationToken);
         if (invoice is null)

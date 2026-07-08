@@ -25,21 +25,44 @@ public sealed class PaymentRepository(BillFlowDbContext db) : IPaymentRepository
         Guid invoiceId,
         CancellationToken cancellationToken = default) =>
         await db.Payments
+            .AsNoTracking()
             .Include(p => p.Invoice)
             .Where(p => p.OwnerId == ownerId && p.InvoiceId == invoiceId)
             .OrderByDescending(p => p.PaymentDate)
             .ThenByDescending(p => p.CreatedAt)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<Payment>> GetAllByOwnerAsync(
+    public async Task<PagedResult<Payment>> GetPagedByOwnerAsync(
         Guid ownerId,
-        CancellationToken cancellationToken = default) =>
-        await db.Payments
+        string? search = null,
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var query = db.Payments
+            .AsNoTracking()
             .Include(p => p.Invoice)
-            .Where(p => p.OwnerId == ownerId && p.Status == PaymentStatus.Completed)
+            .Where(p => p.OwnerId == ownerId && p.Status == PaymentStatus.Completed);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = $"%{search.Trim()}%";
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Invoice.InvoiceNumber, term)
+                || (p.Reference != null && EF.Functions.ILike(p.Reference, term)));
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
             .OrderByDescending(p => p.PaymentDate)
             .ThenByDescending(p => p.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
+
+        return new PagedResult<Payment>(items, totalCount);
+    }
 
     public Task<decimal> GetCompletedTotalForInvoiceAsync(
         Guid ownerId,

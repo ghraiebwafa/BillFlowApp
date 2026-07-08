@@ -9,7 +9,10 @@ public interface IPaymentBillingService
         Guid invoiceId,
         CancellationToken cancellationToken = default);
 
-    Task<OperationResult<IReadOnlyList<PaymentResponse>>> GetAllAsync(
+    Task<OperationResult<PagedResponse<PaymentResponse>>> GetAllAsync(
+        string? search = null,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default);
 
     Task<OperationResult<PaymentResponse>> CreateAsync(

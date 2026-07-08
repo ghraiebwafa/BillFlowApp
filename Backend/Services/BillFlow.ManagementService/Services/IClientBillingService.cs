@@ -5,8 +5,10 @@ namespace BillFlow.ManagementService.Services;
 
 public interface IClientBillingService
 {
-    Task<OperationResult<IReadOnlyList<ClientResponse>>> GetAllAsync(
+    Task<OperationResult<PagedResponse<ClientResponse>>> GetAllAsync(
         string? search = null,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default);
 
     Task<OperationResult<ClientResponse>> GetByIdAsync(

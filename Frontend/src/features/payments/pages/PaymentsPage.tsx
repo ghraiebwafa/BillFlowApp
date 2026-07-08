@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,12 +8,19 @@ import { StatusBadge } from "../../../shared/ui/StatusBadge";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
+import { buildPageQuery, type PagedResponse } from "../../../domain/billing/paging";
 import { paymentRecordSchema } from "../../../domain/billing/schemas";
 import type { PaymentRecord } from "../../../domain/billing/payment";
 import { paymentMethodLabel } from "../../../domain/billing/payment";
+import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 
-function formatMoney(amount: number): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amount);
+function useDebouncedValue(value: string, delayMs = 300): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function formatDate(value: string): string {
@@ -22,28 +29,33 @@ function formatDate(value: string): string {
   );
 }
 
+const pagedPaymentSchema = z.object({
+  items: z.array(paymentRecordSchema),
+  totalCount: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+
 export function PaymentsPage() {
   const { t } = useTranslation();
+  const currency = useCompanyCurrency();
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["payments"],
+    queryKey: ["payments", debouncedSearch],
     queryFn: () =>
-      managementRequest<PaymentRecord[]>(billingApi.payments, {
-        schema: z.array(paymentRecordSchema),
-      }),
+      managementRequest<PagedResponse<PaymentRecord>>(
+        `${billingApi.payments}${buildPageQuery({
+          search: debouncedSearch,
+          page: 1,
+          pageSize: 50,
+        })}`,
+        { schema: pagedPaymentSchema },
+      ),
   });
 
-  const payments = useMemo(() => {
-    const rows = data ?? [];
-    const term = search.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter(
-      (payment) =>
-        payment.invoiceNumber.toLowerCase().includes(term) ||
-        payment.reference?.toLowerCase().includes(term),
-    );
-  }, [data, search]);
+  const payments = data?.items ?? [];
 
   return (
     <section className="app-screen">
@@ -75,7 +87,7 @@ export function PaymentsPage() {
                 <p className="mt-1 text-xs text-secondary">{formatDate(row.paymentDate)}</p>
               </div>
               <div className="text-right">
-                <p className="font-semibold text-accent">{formatMoney(row.amount)}</p>
+                <p className="font-semibold text-accent">{formatMoney(row.amount, currency)}</p>
                 <StatusBadge label={t("payments.completed")} variant="completed" />
               </div>
             </div>
