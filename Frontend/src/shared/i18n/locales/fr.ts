@@ -12,6 +12,12 @@ export const fr = {
     next: "Suivant",
     saved: "Modifications enregistrees.",
     actionFailed: "Une erreur est survenue. Reessayez.",
+    pagination: {
+      showing: "Affichage {{from}}–{{to}} sur {{total}}",
+      previous: "Precedent",
+      next: "Suivant",
+      pageOf: "Page {{page}} sur {{pages}}",
+    },
   },
   toast: {
     invoiceCreated: "Facture creee avec succes.",
@@ -175,6 +181,8 @@ export const fr = {
     creating: "Creation...",
     createSubmit: "Creer la facture",
     addClientFirst: "Ajoutez d'abord un client",
+    searchClients: "Rechercher des clients",
+    clientSearchHint: "Affichage des premiers resultats. Affinez la recherche pour trouver d'autres clients.",
     filters: { all: "Toutes", paid: "Payees", unpaid: "Impayees", partial: "Partielles" },
     steps: { billTo: "Client", items: "Articles", summary: "Resume" },
     createErrors: {

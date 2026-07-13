@@ -12,6 +12,12 @@ export const en = {
     next: "Next",
     saved: "Changes saved successfully.",
     actionFailed: "Something went wrong. Please try again.",
+    pagination: {
+      showing: "Showing {{from}}–{{to}} of {{total}}",
+      previous: "Previous",
+      next: "Next",
+      pageOf: "Page {{page}} of {{pages}}",
+    },
   },
   toast: {
     invoiceCreated: "Invoice created successfully.",
@@ -175,6 +181,8 @@ export const en = {
     creating: "Creating...",
     createSubmit: "Create invoice",
     addClientFirst: "Add a client first",
+    searchClients: "Search clients",
+    clientSearchHint: "Showing the first matches. Refine your search to find more clients.",
     filters: {
       all: "All",
       paid: "Paid",

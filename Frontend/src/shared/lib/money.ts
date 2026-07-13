@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { managementRequest } from "../api/management-client";
-import { billingApi } from "../../domain/billing/api-paths";
-import type { CompanySettingsResponse } from "../../domain/billing/company-settings";
+import {
+  companySettingsQueryKey,
+  fetchCompanySettings,
+} from "../../domain/billing/company-settings-api";
 
 export function useCompanyCurrency(): string {
   const { data } = useQuery({
-    queryKey: ["company-settings"],
-    queryFn: () => managementRequest<CompanySettingsResponse>(billingApi.companySettings),
+    queryKey: companySettingsQueryKey,
+    queryFn: fetchCompanySettings,
     staleTime: 60_000,
   });
 
