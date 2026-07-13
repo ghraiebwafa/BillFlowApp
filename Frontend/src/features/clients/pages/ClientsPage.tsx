@@ -1,53 +1,46 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MoreVertical, Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
+import { PaginationBar } from "../../../shared/ui/PaginationBar";
 import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
-import { buildPageQuery, type PagedResponse } from "../../../domain/billing/paging";
+import { buildPageQuery, pagedSchema, type PagedResponse } from "../../../domain/billing/paging";
 import { clientResponseSchema } from "../../../domain/billing/schemas";
 import { clientInitial, type ClientResponse } from "../../../domain/billing/client";
+import { useDebouncedValue } from "../../../shared/lib/use-debounced-value";
 
-function useDebouncedValue(value: string, delayMs = 300): string {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setDebounced(value), delayMs);
-    return () => window.clearTimeout(timer);
-  }, [value, delayMs]);
-
-  return debounced;
-}
-
-const pagedClientSchema = z.object({
-  items: z.array(clientResponseSchema),
-  totalCount: z.number().int(),
-  page: z.number().int(),
-  pageSize: z.number().int(),
-});
+const PAGE_SIZE = 50;
+const pagedClientSchema = pagedSchema(clientResponseSchema);
 
 export function ClientsPage() {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["clients", debouncedSearch],
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch]);
+
+  const { data, isLoading, error, isFetching } = useQuery({
+    queryKey: ["clients", { mode: "list", search: debouncedSearch, page, pageSize: PAGE_SIZE }],
     queryFn: () =>
       managementRequest<PagedResponse<ClientResponse>>(
         `${billingApi.clients}${buildPageQuery({
           search: debouncedSearch,
-          page: 1,
-          pageSize: 50,
+          page,
+          pageSize: PAGE_SIZE,
         })}`,
         { schema: pagedClientSchema },
       ),
+    placeholderData: (previous) => previous,
   });
 
   const clients = data?.items ?? [];
+  const totalCount = data?.totalCount ?? 0;
 
   return (
     <section className="app-screen space-y-4">
@@ -59,13 +52,14 @@ export function ClientsPage() {
           placeholder={t("clients.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          aria-label={t("clients.searchPlaceholder")}
         />
       </label>
 
       {isLoading ? <div className="card">{t("app.loading")}</div> : null}
 
       {error ? (
-        <div className="card text-red-500">
+        <div className="card text-red-500" role="alert">
           {error instanceof ApiError ? error.message : t("clients.loadError")}
         </div>
       ) : null}
@@ -74,31 +68,30 @@ export function ClientsPage() {
         <div className="card text-center text-secondary">{t("clients.empty")}</div>
       ) : null}
 
-      <ul className="space-y-3">
-        {clients.map((client) => (
-          <li key={client.id} className="client-card">
-            <div className="client-avatar" aria-hidden>
-              {clientInitial(client.companyName)}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{client.companyName}</p>
-              <p className="truncate text-sm text-secondary">{client.contactName}</p>
-              <p className="truncate text-xs text-secondary">{client.email}</p>
-            </div>
-            <button
-              className="btn-ghost shrink-0 p-1 text-secondary"
-              type="button"
-              aria-label={t("clients.actions")}
-            >
-              <MoreVertical className="h-5 w-5" />
-            </button>
-          </li>
-        ))}
-      </ul>
+      {!isLoading && !error && clients.length > 0 ? (
+        <ul className="space-y-3">
+          {clients.map((client) => (
+            <li key={client.id} className="client-card">
+              <div className="client-avatar" aria-hidden>
+                {clientInitial(client.companyName)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{client.companyName}</p>
+                <p className="truncate text-sm text-secondary">{client.contactName}</p>
+                <p className="truncate text-xs text-secondary">{client.email}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
-      <button className="fab md:hidden" type="button" aria-label={t("clients.add")}>
-        <Plus className="h-6 w-6" />
-      </button>
+      <PaginationBar
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalCount={totalCount}
+        onPageChange={setPage}
+        disabled={isFetching}
+      />
     </section>
   );
 }

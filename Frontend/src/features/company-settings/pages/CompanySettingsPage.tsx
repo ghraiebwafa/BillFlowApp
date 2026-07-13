@@ -16,6 +16,10 @@ import {
   mapSettingsToForm,
   type CompanySettingsResponse,
 } from "../../../domain/billing/company-settings";
+import {
+  companySettingsQueryKey,
+  fetchCompanySettings,
+} from "../../../domain/billing/company-settings-api";
 
 const companySettingsSchema = z.object({
   companyName: z.string().trim().min(1).max(200),
@@ -35,19 +39,6 @@ const companySettingsSchema = z.object({
 
 type CompanySettingsForm = z.infer<typeof companySettingsSchema>;
 
-async function fetchCompanySettings(): Promise<CompanySettingsResponse | null> {
-  try {
-    return await managementRequest<CompanySettingsResponse>(
-      billingApi.companySettings,
-    );
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) {
-      return null;
-    }
-    throw error;
-  }
-}
-
 type SettingsTab = "general" | "invoice" | "payment" | "email";
 
 export function CompanySettingsPage() {
@@ -58,7 +49,7 @@ export function CompanySettingsPage() {
   const [tab, setTab] = useState<SettingsTab>("general");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["company-settings"],
+    queryKey: companySettingsQueryKey,
     queryFn: fetchCompanySettings,
   });
 
@@ -85,7 +76,7 @@ export function CompanySettingsPage() {
         body: mapFormToRequest(values),
       }),
     onSuccess: (saved) => {
-      queryClient.setQueryData(["company-settings"], saved);
+      queryClient.setQueryData(companySettingsQueryKey, saved);
       reset(mapSettingsToForm(saved));
       setFormError(null);
       setSavedMessage(t("settings.saved"));

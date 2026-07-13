@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { FormField } from "../../../shared/ui/FormField";
 import { managementRequest } from "../../../shared/api/management-client";
@@ -11,9 +10,11 @@ import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
 import type { ClientResponse } from "../../../domain/billing/client";
 import type { InvoiceDetail } from "../../../domain/billing/invoice";
-import { buildPageQuery, type PagedResponse } from "../../../domain/billing/paging";
+import { buildPageQuery, pagedSchema, type PagedResponse } from "../../../domain/billing/paging";
 import { clientResponseSchema, invoiceDetailSchema } from "../../../domain/billing/schemas";
 import { toast } from "../../../shared/ui/toast-store";
+import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
+import { useDebouncedValue } from "../../../shared/lib/use-debounced-value";
 
 type CreateForm = {
   clientId: string;
@@ -24,30 +25,40 @@ type CreateForm = {
   unitPrice: number;
 };
 
+const PICKER_PAGE_SIZE = 50;
+const pagedClientSchema = pagedSchema(clientResponseSchema);
+
 export function CreateInvoicePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const currency = useCompanyCurrency();
   const [formError, setFormError] = useState<string | null>(null);
   const [step, setStep] = useState<"billTo" | "items" | "summary">("billTo");
+  const [clientSearch, setClientSearch] = useState("");
+  const debouncedClientSearch = useDebouncedValue(clientSearch);
 
-  const { data: clientsPage } = useQuery({
-    queryKey: ["clients", "picker"],
+  const {
+    data: clientsPage,
+    isLoading: clientsLoading,
+    error: clientsError,
+  } = useQuery({
+    queryKey: ["clients", { mode: "picker", search: debouncedClientSearch, page: 1, pageSize: PICKER_PAGE_SIZE }],
     queryFn: () =>
       managementRequest<PagedResponse<ClientResponse>>(
-        `${billingApi.clients}${buildPageQuery({ page: 1, pageSize: 100 })}`,
-        {
-          schema: z.object({
-            items: z.array(clientResponseSchema),
-            totalCount: z.number().int(),
-            page: z.number().int(),
-            pageSize: z.number().int(),
-          }),
-        },
+        `${billingApi.clients}${buildPageQuery({
+          search: debouncedClientSearch,
+          page: 1,
+          pageSize: PICKER_PAGE_SIZE,
+        })}`,
+        { schema: pagedClientSchema },
       ),
   });
-  const clients = clientsPage?.items;
 
-  const { register, handleSubmit, watch, getValues } = useForm<CreateForm>({
+  const clients = (clientsPage?.items ?? []).filter((client) => client.isActive);
+  const clientsTruncated = (clientsPage?.totalCount ?? 0) > PICKER_PAGE_SIZE;
+
+  const { register, handleSubmit, watch, getValues, setValue } = useForm<CreateForm>({
     defaultValues: {
       clientId: "",
       taxRate: 10,
@@ -58,6 +69,15 @@ export function CreateInvoicePage() {
     },
   });
 
+  const selectedClientId = watch("clientId");
+
+  useEffect(() => {
+    if (!selectedClientId) return;
+    if (!clients.some((client) => client.id === selectedClientId)) {
+      setValue("clientId", "");
+    }
+  }, [clients, selectedClientId, setValue]);
+
   const createMutation = useMutation({
     mutationFn: (body: unknown) =>
       managementRequest<InvoiceDetail>(billingApi.invoices, {
@@ -65,6 +85,9 @@ export function CreateInvoicePage() {
         body,
         schema: invoiceDetailSchema,
       }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+    },
   });
 
   const goNext = () => {
@@ -93,8 +116,7 @@ export function CreateInvoicePage() {
     setStep(step === "summary" ? "items" : "billTo");
   };
 
-  const selectedClientId = watch("clientId");
-  const selectedClient = clients?.find((c) => c.id === selectedClientId);
+  const selectedClient = clients.find((c) => c.id === selectedClientId);
 
   const onCreate = handleSubmit(async (values) => {
     setFormError(null);
@@ -144,7 +166,12 @@ export function CreateInvoicePage() {
           <button
             key={key}
             className={step === key ? "step-tab active" : "step-tab"}
-            onClick={() => setStep(key)}
+            onClick={() => {
+              if (key === "billTo" || step === "summary" || step === "items") {
+                setFormError(null);
+                setStep(key);
+              }
+            }}
             type="button"
           >
             {label}
@@ -155,17 +182,34 @@ export function CreateInvoicePage() {
       <form className="card space-y-4" onSubmit={onCreate}>
         {step === "billTo" ? (
           <>
-            <label className="block space-y-1.5 text-sm">
-              <span className="font-medium">{t("invoices.client")}</span>
-              <select className="field-select" {...register("clientId")}>
-                <option value="">{t("invoices.selectClient")}</option>
-                {(clients ?? []).map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.companyName}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <FormField
+              label={t("invoices.searchClients")}
+              value={clientSearch}
+              onChange={(e) => setClientSearch(e.target.value)}
+              placeholder={t("clients.searchPlaceholder")}
+            />
+            {clientsLoading ? <p className="text-sm text-secondary">{t("app.loading")}</p> : null}
+            {clientsError ? (
+              <p className="text-sm text-red-500" role="alert">
+                {clientsError instanceof ApiError ? clientsError.message : t("clients.loadError")}
+              </p>
+            ) : null}
+            {!clientsLoading && !clientsError ? (
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium">{t("invoices.client")}</span>
+                <select className="field-select" {...register("clientId")}>
+                  <option value="">{t("invoices.selectClient")}</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.companyName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {clientsTruncated ? (
+              <p className="text-xs text-secondary">{t("invoices.clientSearchHint")}</p>
+            ) : null}
             <FormField label={t("invoices.taxRate")} type="number" step="0.01" {...register("taxRate", { valueAsNumber: true })} />
           </>
         ) : null}
@@ -194,12 +238,16 @@ export function CreateInvoicePage() {
             </p>
             <p>
               <span className="text-secondary">{t("invoices.unitPrice")}: </span>
-              <span className="font-medium">{getValues("unitPrice")}</span>
+              <span className="font-medium">{formatMoney(getValues("unitPrice") || 0, currency)}</span>
             </p>
           </div>
         ) : null}
 
-        {formError ? <p className="text-sm text-red-500">{formError}</p> : null}
+        {formError ? (
+          <p className="text-sm text-red-500" role="alert">
+            {formError}
+          </p>
+        ) : null}
 
         <div className="flex gap-2">
           {step !== "billTo" ? (
@@ -219,7 +267,7 @@ export function CreateInvoicePage() {
         </div>
       </form>
 
-      {!clients?.length ? (
+      {!clientsLoading && !clientsError && clients.length === 0 ? (
         <p className="text-center text-sm text-secondary">
           <Link to="/clients" className="text-accent no-underline">
             {t("invoices.addClientFirst")}
