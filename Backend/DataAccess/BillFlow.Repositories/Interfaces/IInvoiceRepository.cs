@@ -40,8 +40,6 @@ public interface IInvoiceRepository
         IReadOnlyList<InvoiceLineItem> lineItems,
         CancellationToken cancellationToken = default);
 
-    Task SyncOverdueStatusesAsync(Guid ownerId, CancellationToken cancellationToken = default);
-
     Task<int> SyncOverdueStatusesForAllOwnersAsync(CancellationToken cancellationToken = default);
 
     Task DeleteLineItemsAsync(Guid invoiceId, CancellationToken cancellationToken = default);

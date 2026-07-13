@@ -39,22 +39,22 @@ public sealed class PaymentRepository(BillFlowDbContext db) : IPaymentRepository
         int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var query = db.Payments
+        var filter = db.Payments
             .AsNoTracking()
-            .Include(p => p.Invoice)
             .Where(p => p.OwnerId == ownerId && p.Status == PaymentStatus.Completed);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = $"%{search.Trim()}%";
-            query = query.Where(p =>
+            filter = filter.Where(p =>
                 EF.Functions.ILike(p.Invoice.InvoiceNumber, term)
                 || (p.Reference != null && EF.Functions.ILike(p.Reference, term)));
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
+        var totalCount = await filter.CountAsync(cancellationToken);
 
-        var items = await query
+        var items = await filter
+            .Include(p => p.Invoice)
             .OrderByDescending(p => p.PaymentDate)
             .ThenByDescending(p => p.CreatedAt)
             .Skip((page - 1) * pageSize)

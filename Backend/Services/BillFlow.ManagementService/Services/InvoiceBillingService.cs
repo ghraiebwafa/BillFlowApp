@@ -41,6 +41,14 @@ public sealed class InvoiceBillingService(
             return ownerId.Error;
 
         var owner = ownerId.Value!.Value;
+
+        if (status is not null && statuses is { Count: > 0 })
+        {
+            return OperationResult<PagedResponse<InvoiceSummaryResponse>>.Fail(
+                "Provide either status or statuses, not both.",
+                StatusCodes.Status400BadRequest);
+        }
+
         var (normalizedPage, normalizedPageSize) = BillingPaging.Normalize(page, pageSize);
 
         var result = await invoiceRepository.GetPagedAsync(

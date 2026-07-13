@@ -53,7 +53,7 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
             .AsNoTracking()
             .CountAsync(c => c.OwnerId == ownerId && c.IsActive, cancellationToken);
 
-        var openInvoices = await db.Invoices
+        var pendingPaymentsAmount = await db.Invoices
             .AsNoTracking()
             .Where(i =>
                 i.OwnerId == ownerId
@@ -62,14 +62,12 @@ public sealed class DashboardRepository(BillFlowDbContext db) : IDashboardReposi
                     || i.Status == InvoiceStatus.Overdue))
             .Select(i => new
             {
-                i.Total,
-                Paid = i.Payments
+                Remaining = i.Total - i.Payments
                     .Where(p => p.Status == PaymentStatus.Completed)
                     .Sum(p => p.Amount),
             })
-            .ToListAsync(cancellationToken);
-
-        var pendingPaymentsAmount = openInvoices.Sum(i => Math.Max(0m, i.Total - i.Paid));
+            .Where(x => x.Remaining > 0)
+            .SumAsync(x => x.Remaining, cancellationToken);
 
         var revenueByMonth = await db.Payments
             .AsNoTracking()

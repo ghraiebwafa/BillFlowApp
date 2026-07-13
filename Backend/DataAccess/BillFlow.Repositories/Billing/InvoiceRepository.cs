@@ -39,11 +39,12 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
         int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var query = BuildListQuery(ownerId, status, statuses, search);
+        var filter = BuildListFilter(ownerId, status, statuses, search);
 
-        var totalCount = await query.CountAsync(cancellationToken);
+        var totalCount = await filter.CountAsync(cancellationToken);
 
-        var items = await query
+        var items = await filter
+            .Include(i => i.Client)
             .OrderByDescending(i => i.InvoiceDate)
             .ThenByDescending(i => i.CreatedAt)
             .Skip((page - 1) * pageSize)
@@ -105,22 +106,6 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
         await transaction.CommitAsync(cancellationToken);
     }
 
-    public Task SyncOverdueStatusesAsync(Guid ownerId, CancellationToken cancellationToken = default)
-    {
-        var today = DateTime.UtcNow.Date;
-
-        return db.Invoices
-            .Where(i =>
-                i.OwnerId == ownerId
-                && i.Status == InvoiceStatus.Sent
-                && i.DueDate < today)
-            .ExecuteUpdateAsync(
-                setters => setters
-                    .SetProperty(i => i.Status, InvoiceStatus.Overdue)
-                    .SetProperty(i => i.UpdatedAt, DateTime.UtcNow),
-                cancellationToken);
-    }
-
     public Task<int> SyncOverdueStatusesForAllOwnersAsync(CancellationToken cancellationToken = default)
     {
         var today = DateTime.UtcNow.Date;
@@ -173,15 +158,13 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    private IQueryable<Invoice> BuildListQuery(
+    private IQueryable<Invoice> BuildListFilter(
         Guid ownerId,
         InvoiceStatus? status,
         IReadOnlyCollection<InvoiceStatus>? statuses,
         string? search)
     {
-        var query = db.Invoices
-            .Include(i => i.Client)
-            .Where(i => i.OwnerId == ownerId);
+        var query = db.Invoices.AsNoTracking().Where(i => i.OwnerId == ownerId);
 
         if (statuses is { Count: > 0 })
             query = query.Where(i => statuses.Contains(i.Status));
