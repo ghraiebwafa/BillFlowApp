@@ -10,12 +10,12 @@ namespace BillFlow.ManagementService.Controllers;
 [Route("api/v1.0/portal")]
 public class PortalController(IPortalService portalService) : ControllerBase
 {
-    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
+    [EnableRateLimiting(RateLimitPolicies.PortalRead)]
     [HttpGet("{token}")]
     public Task<IActionResult> GetInvoice(string token, CancellationToken cancellationToken) =>
         portalService.GetInvoiceByTokenAsync(token, cancellationToken).ToBillingActionResult();
 
-    [EnableRateLimiting(RateLimitPolicies.BillingExport)]
+    [EnableRateLimiting(RateLimitPolicies.PortalExport)]
     [HttpGet("{token}/pdf")]
     public Task<IActionResult> DownloadPdf(string token, CancellationToken cancellationToken) =>
         this.ToBillingPdfResult(portalService.DownloadPdfByTokenAsync(token, cancellationToken));

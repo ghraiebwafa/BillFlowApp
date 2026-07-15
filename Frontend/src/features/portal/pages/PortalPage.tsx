@@ -6,6 +6,7 @@ import { z } from "zod";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
 import { portalApi } from "../../../domain/billing/api-paths";
 import { env } from "../../../shared/config/env";
+import { formatMoney } from "../../../shared/lib/money";
 import { InvoiceStatus, invoiceStatusLabel } from "../../../domain/billing/invoice";
 
 const publicLineItemSchema = z.object({
@@ -45,10 +46,6 @@ const publicInvoiceSchema = z.object({
 });
 
 type PublicInvoice = z.infer<typeof publicInvoiceSchema>;
-
-function formatMoney(amount: number, currency = "USD"): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amount);
-}
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(
@@ -149,7 +146,7 @@ export function PortalPage() {
                   <p className="text-sm text-secondary portal-issuer-name">{invoice.issuer.companyName}</p>
                 ) : null}
               </div>
-              <StatusBadge label={invoiceStatusLabel(invoice.status as InvoiceStatus)} variant={statusVariant(invoice.status as InvoiceStatus)} />
+              <StatusBadge label={invoiceStatusLabel(invoice.status as InvoiceStatus, t)} variant={statusVariant(invoice.status as InvoiceStatus)} />
             </div>
 
             {/* Issuer + Client info */}
