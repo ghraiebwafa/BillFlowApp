@@ -11,4 +11,8 @@ public static class RateLimitPolicies
     public const string BillingRead = "billing-read";
 
     public const string BillingExport = "billing-export";
+
+    public const string PortalRead = "portal-read";
+
+    public const string PortalExport = "portal-export";
 }

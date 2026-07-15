@@ -58,12 +58,7 @@ public class Startup
 
     public void Configure(WebApplication app)
     {
-        if (ShouldApplyMigrations())
-        {
-            using var scope = app.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<BillFlowDbContext>();
-            db.Database.Migrate();
-        }
+        // Migrations are owned by ManagementService only (APPLY_MIGRATIONS=true there).
 
         app.UseExceptionHandler();
         app.UseBillFlowSecurityHeaders();
@@ -115,10 +110,4 @@ public class Startup
         app.UseAuthorization();
         app.MapControllers();
     }
-
-    private static bool ShouldApplyMigrations() =>
-        string.Equals(
-            Environment.GetEnvironmentVariable("APPLY_MIGRATIONS"),
-            "true",
-            StringComparison.OrdinalIgnoreCase);
 }
