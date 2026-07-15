@@ -331,7 +331,7 @@ docker compose down -v   # also removes database volumes
 
 ### Apply migrations
 
-With `APPLY_MIGRATIONS=true` in `.env`, services apply migrations automatically on startup (development default).
+With `APPLY_MIGRATIONS=true` in `.env`, **ManagementService** applies migrations automatically on startup (AuthService does not migrate — single owner).
 
 ### Create a new migration
 
