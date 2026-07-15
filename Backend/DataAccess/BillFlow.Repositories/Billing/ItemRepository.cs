@@ -29,13 +29,15 @@ public sealed class ItemRepository(BillFlowDbContext db) : IItemRepository
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<Item>> GetAllAsync(
+    public async Task<PagedResult<Item>> GetPagedAsync(
         Guid ownerId,
         string? search = null,
         bool includeArchived = false,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        var query = db.Items.Where(i => i.OwnerId == ownerId);
+        var query = db.Items.AsNoTracking().Where(i => i.OwnerId == ownerId);
 
         if (!includeArchived)
             query = query.Where(i => !i.IsArchived);
@@ -49,9 +51,15 @@ public sealed class ItemRepository(BillFlowDbContext db) : IItemRepository
                 || (i.Category != null && EF.Functions.ILike(i.Category, term)));
         }
 
-        return await query
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
             .OrderBy(i => i.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
+
+        return new PagedResult<Item>(items, totalCount);
     }
 
     public Task<bool> HasLineItemsAsync(

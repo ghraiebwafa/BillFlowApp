@@ -5,9 +5,11 @@ namespace BillFlow.ManagementService.Services;
 
 public interface IItemBillingService
 {
-    Task<OperationResult<IReadOnlyList<ItemResponse>>> GetAllAsync(
+    Task<OperationResult<PagedResponse<ItemResponse>>> GetAllAsync(
         string? search = null,
         bool includeArchived = false,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default);
 
     Task<OperationResult<ItemResponse>> GetByIdAsync(

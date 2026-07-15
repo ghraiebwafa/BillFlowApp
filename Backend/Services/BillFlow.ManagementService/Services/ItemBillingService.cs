@@ -12,22 +12,32 @@ public sealed class ItemBillingService(
     IAuditTrailService auditTrail,
     ICurrentUserAccessor currentUser) : IItemBillingService
 {
-    public async Task<OperationResult<IReadOnlyList<ItemResponse>>> GetAllAsync(
+    public async Task<OperationResult<PagedResponse<ItemResponse>>> GetAllAsync(
         string? search = null,
         bool includeArchived = false,
+        int? page = null,
+        int? pageSize = null,
         CancellationToken cancellationToken = default)
     {
-        var ownerId = BillingAuthorization.RequireBusinessOwnerId<IReadOnlyList<ItemResponse>>(currentUser);
+        var ownerId = BillingAuthorization.RequireBusinessOwnerId<PagedResponse<ItemResponse>>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        var items = await itemRepository.GetAllAsync(
+        var (normalizedPage, normalizedPageSize) = BillingPaging.Normalize(page, pageSize);
+        var result = await itemRepository.GetPagedAsync(
             ownerId.Value!.Value,
             search,
             includeArchived,
+            normalizedPage,
+            normalizedPageSize,
             cancellationToken);
 
-        return OperationResult<IReadOnlyList<ItemResponse>>.Ok(items.Select(Map).ToList());
+        return OperationResult<PagedResponse<ItemResponse>>.Ok(
+            PagedResponse<ItemResponse>.Create(
+                result.Items.Select(Map).ToList(),
+                result.TotalCount,
+                normalizedPage,
+                normalizedPageSize));
     }
 
     public async Task<OperationResult<ItemResponse>> GetByIdAsync(

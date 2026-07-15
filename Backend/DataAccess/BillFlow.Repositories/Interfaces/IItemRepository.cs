@@ -11,10 +11,12 @@ public interface IItemRepository
         IReadOnlyCollection<Guid> itemIds,
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<Item>> GetAllAsync(
+    Task<PagedResult<Item>> GetPagedAsync(
         Guid ownerId,
         string? search = null,
         bool includeArchived = false,
+        int page = 1,
+        int pageSize = 50,
         CancellationToken cancellationToken = default);
 
     Task<bool> HasLineItemsAsync(

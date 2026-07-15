@@ -19,8 +19,11 @@ public class ItemController(IItemBillingService itemService) : ControllerBase
     public Task<IActionResult> GetAll(
         [FromQuery] string? search,
         [FromQuery] bool includeArchived = false,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null,
         CancellationToken cancellationToken = default) =>
-        itemService.GetAllAsync(search, includeArchived, cancellationToken).ToBillingActionResult();
+        itemService.GetAllAsync(search, includeArchived, page, pageSize, cancellationToken)
+            .ToBillingActionResult();
 
     [EnableRateLimiting(RateLimitPolicies.BillingRead)]
     [HttpGet("{id:guid}")]

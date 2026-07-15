@@ -48,9 +48,9 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         var listResponse = await client.GetAsync("/api/v1.0/billing/items?search=web");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
 
-        var items = await listResponse.Content.ReadFromJsonAsync<List<ItemResponse>>(JsonOptions);
-        Assert.NotNull(items);
-        Assert.Contains(items, i => i.Id == created.Id);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResponse<ItemResponse>>(JsonOptions);
+        Assert.NotNull(page);
+        Assert.Contains(page.Items, i => i.Id == created.Id);
 
         var updateResponse = await client.PutAsJsonAsync(
             $"/api/v1.0/billing/items/{created.Id}",
@@ -73,14 +73,14 @@ public sealed class ItemBillingIntegrationTests(ManagementApiFixture fixture)
         Assert.Equal(HttpStatusCode.OK, archiveResponse.StatusCode);
 
         var archivedListResponse = await client.GetAsync("/api/v1.0/billing/items");
-        var activeItems = await archivedListResponse.Content.ReadFromJsonAsync<List<ItemResponse>>(JsonOptions);
-        Assert.NotNull(activeItems);
-        Assert.DoesNotContain(activeItems, i => i.Id == created.Id);
+        var activePage = await archivedListResponse.Content.ReadFromJsonAsync<PagedResponse<ItemResponse>>(JsonOptions);
+        Assert.NotNull(activePage);
+        Assert.DoesNotContain(activePage.Items, i => i.Id == created.Id);
 
         var includeArchivedResponse = await client.GetAsync("/api/v1.0/billing/items?includeArchived=true");
-        var allItems = await includeArchivedResponse.Content.ReadFromJsonAsync<List<ItemResponse>>(JsonOptions);
-        Assert.NotNull(allItems);
-        Assert.Contains(allItems, i => i.Id == created.Id && i.IsArchived);
+        var allPage = await includeArchivedResponse.Content.ReadFromJsonAsync<PagedResponse<ItemResponse>>(JsonOptions);
+        Assert.NotNull(allPage);
+        Assert.Contains(allPage.Items, i => i.Id == created.Id && i.IsArchived);
 
         var deleteResponse = await client.DeleteAsync($"/api/v1.0/billing/items/{created.Id}");
         Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
