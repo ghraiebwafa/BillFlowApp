@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Services\BillFlow.AuthService\BillFlow.AuthService.csproj" />
+    <ProjectReference Include="..\..\DataAccess\BillFlow.Database\BillFlow.Database.csproj" />
     <ProjectReference Include="..\..\DataAccess\BillFlow.Models\BillFlow.Models.csproj" />
   </ItemGroup>
 
