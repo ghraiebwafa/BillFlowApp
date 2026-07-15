@@ -30,17 +30,4 @@ export type PaymentRecord = {
   updatedAt?: string | null;
 };
 
-export function paymentMethodLabel(method: PaymentMethod): string {
-  switch (method) {
-    case PaymentMethod.BankTransfer:
-      return "Bank Transfer";
-    case PaymentMethod.CreditCard:
-      return "Credit Card";
-    case PaymentMethod.PayPal:
-      return "PayPal";
-    case PaymentMethod.Stripe:
-      return "Stripe";
-    default:
-      return "Cash";
-  }
-}
+export { paymentMethodLabel, paymentStatusLabel } from "./payment-labels";

@@ -22,6 +22,7 @@ export function buildPageQuery(params: {
   statuses?: Array<number | string>;
   page?: number;
   pageSize?: number;
+  includeArchived?: boolean;
 }): string {
   const query = new URLSearchParams();
   if (params.search?.trim()) query.set("search", params.search.trim());
@@ -33,6 +34,9 @@ export function buildPageQuery(params: {
   }
   if (params.page !== undefined) query.set("page", String(params.page));
   if (params.pageSize !== undefined) query.set("pageSize", String(params.pageSize));
+  if (params.includeArchived !== undefined) {
+    query.set("includeArchived", String(params.includeArchived));
+  }
   const serialized = query.toString();
   return serialized ? `?${serialized}` : "";
 }

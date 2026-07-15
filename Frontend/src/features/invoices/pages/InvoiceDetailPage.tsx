@@ -83,6 +83,7 @@ export function InvoiceDetailPage() {
       queryClient.setQueryData(["invoice", id], updated);
       void queryClient.invalidateQueries({ queryKey: ["invoices"] });
       void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       toast(t("toast.invoiceSent"), "success");
     },
     onError: (err) => {
@@ -180,7 +181,7 @@ export function InvoiceDetailPage() {
       {invoice ? (
         <>
           <div className="flex justify-center">
-            <StatusBadge label={invoiceStatusLabel(invoice.status)} variant={statusVariant(invoice.status)} />
+            <StatusBadge label={invoiceStatusLabel(invoice.status, t)} variant={statusVariant(invoice.status)} />
           </div>
 
           <div className="detail-section card">
@@ -244,7 +245,7 @@ export function InvoiceDetailPage() {
                       <StatusBadge label={t("payments.completed")} variant="completed" />
                     </div>
                     <p className="text-sm text-secondary">
-                      {paymentMethodLabel(payment.method)} · {formatDate(payment.paymentDate)}
+                      {paymentMethodLabel(payment.method, t)} · {formatDate(payment.paymentDate)}
                     </p>
                   </li>
                 ))}

@@ -96,6 +96,8 @@ public class BillFlowDbContext : DbContext
                 .IsUnique()
                 .HasFilter("\"IsDeleted\" = false");
 
+            entity.HasIndex(x => new { x.OwnerId, x.CompanyName });
+
             entity.Property(x => x.CompanyName)
                 .HasMaxLength(200)
                 .IsRequired();

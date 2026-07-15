@@ -134,7 +134,7 @@ export function InvoicesPage() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate font-semibold">{invoice.invoiceNumber}</p>
                     <StatusBadge
-                      label={invoiceStatusLabel(invoice.status)}
+                      label={invoiceStatusLabel(invoice.status, t)}
                       variant={statusVariant(invoice.status)}
                     />
                   </div>

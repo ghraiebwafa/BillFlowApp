@@ -50,37 +50,4 @@ export type InvoiceDetail = {
   lineItems: InvoiceLineItem[];
 };
 
-export function invoiceStatusLabel(status: InvoiceStatus): string {
-  switch (status) {
-    case InvoiceStatus.Paid:
-      return "Paid";
-    case InvoiceStatus.PartiallyPaid:
-      return "Partial";
-    case InvoiceStatus.Overdue:
-      return "Unpaid";
-    case InvoiceStatus.Sent:
-      return "Sent";
-    case InvoiceStatus.Draft:
-      return "Draft";
-    case InvoiceStatus.Cancelled:
-      return "Cancelled";
-    default:
-      return "Unknown";
-  }
-}
-
-export function invoiceStatusClass(status: InvoiceStatus): string {
-  switch (status) {
-    case InvoiceStatus.Paid:
-      return "status-badge--paid";
-    case InvoiceStatus.PartiallyPaid:
-      return "status-badge--partial";
-    case InvoiceStatus.Overdue:
-    case InvoiceStatus.Sent:
-      return "status-badge--unpaid";
-    case InvoiceStatus.Draft:
-      return "status-badge--draft";
-    default:
-      return "status-badge--draft";
-  }
-}
+export { invoiceStatusClass, invoiceStatusLabel } from "./invoice-labels";

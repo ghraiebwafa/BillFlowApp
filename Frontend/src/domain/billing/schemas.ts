@@ -62,6 +62,21 @@ export const clientResponseSchema = z.object({
   updatedAt: z.string().nullable().optional(),
 });
 
+export const itemResponseSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  unitPrice: z.number(),
+  currency: z.string(),
+  vatRate: z.number(),
+  category: z.string().nullable().optional(),
+  unit: z.string().nullable().optional(),
+  isActive: z.boolean(),
+  isArchived: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable().optional(),
+});
+
 export const persistedSessionSchema = z.object({
   accessToken: z.string().min(1),
   refreshToken: z.string().min(1),

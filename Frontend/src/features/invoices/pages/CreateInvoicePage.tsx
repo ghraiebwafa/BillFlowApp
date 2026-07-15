@@ -15,6 +15,10 @@ import { clientResponseSchema, invoiceDetailSchema } from "../../../domain/billi
 import { toast } from "../../../shared/ui/toast-store";
 import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 import { useDebouncedValue } from "../../../shared/lib/use-debounced-value";
+import {
+  companySettingsQueryKey,
+  fetchCompanySettings,
+} from "../../../domain/billing/company-settings-api";
 
 type CreateForm = {
   clientId: string;
@@ -25,8 +29,11 @@ type CreateForm = {
   unitPrice: number;
 };
 
+type StepKey = "billTo" | "items" | "summary";
+
 const PICKER_PAGE_SIZE = 50;
 const pagedClientSchema = pagedSchema(clientResponseSchema);
+const stepOrder: StepKey[] = ["billTo", "items", "summary"];
 
 export function CreateInvoicePage() {
   const { t } = useTranslation();
@@ -34,7 +41,7 @@ export function CreateInvoicePage() {
   const queryClient = useQueryClient();
   const currency = useCompanyCurrency();
   const [formError, setFormError] = useState<string | null>(null);
-  const [step, setStep] = useState<"billTo" | "items" | "summary">("billTo");
+  const [step, setStep] = useState<StepKey>("billTo");
   const [clientSearch, setClientSearch] = useState("");
   const debouncedClientSearch = useDebouncedValue(clientSearch);
 
@@ -55,19 +62,31 @@ export function CreateInvoicePage() {
       ),
   });
 
+  const { data: companySettings } = useQuery({
+    queryKey: companySettingsQueryKey,
+    queryFn: fetchCompanySettings,
+    staleTime: 60_000,
+  });
+
   const clients = (clientsPage?.items ?? []).filter((client) => client.isActive);
   const clientsTruncated = (clientsPage?.totalCount ?? 0) > PICKER_PAGE_SIZE;
 
   const { register, handleSubmit, watch, getValues, setValue } = useForm<CreateForm>({
     defaultValues: {
       clientId: "",
-      taxRate: 10,
+      taxRate: 0,
       notes: "",
       itemDescription: "",
       quantity: 1,
       unitPrice: 0,
     },
   });
+
+  useEffect(() => {
+    if (companySettings?.defaultTaxRate != null) {
+      setValue("taxRate", companySettings.defaultTaxRate);
+    }
+  }, [companySettings, setValue]);
 
   const selectedClientId = watch("clientId");
 
@@ -87,33 +106,48 @@ export function CreateInvoicePage() {
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
     },
   });
 
-  const goNext = () => {
+  const canEnterStep = (target: StepKey): boolean => {
     const values = getValues();
-    setFormError(null);
-
-    if (step === "billTo") {
-      if (!values.clientId) {
-        setFormError(t("invoices.createErrors.clientRequired"));
-        return;
-      }
-      setStep("items");
-      return;
+    if (target === "billTo") return true;
+    if (!values.clientId) {
+      setFormError(t("invoices.createErrors.clientRequired"));
+      return false;
     }
-
+    if (target === "items") return true;
     if (!values.itemDescription.trim() || values.unitPrice <= 0 || values.quantity < 1) {
       setFormError(t("invoices.createErrors.itemRequired"));
-      return;
+      return false;
     }
+    return true;
+  };
 
-    setStep("summary");
+  const goNext = () => {
+    setFormError(null);
+    const next = step === "billTo" ? "items" : "summary";
+    if (!canEnterStep(next)) return;
+    setStep(next);
   };
 
   const goBack = () => {
     setFormError(null);
     setStep(step === "summary" ? "items" : "billTo");
+  };
+
+  const selectStep = (target: StepKey) => {
+    setFormError(null);
+    const currentIndex = stepOrder.indexOf(step);
+    const targetIndex = stepOrder.indexOf(target);
+    if (targetIndex <= currentIndex) {
+      setStep(target);
+      return;
+    }
+    if (!canEnterStep(target)) return;
+    setStep(target);
   };
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
@@ -166,13 +200,9 @@ export function CreateInvoicePage() {
           <button
             key={key}
             className={step === key ? "step-tab active" : "step-tab"}
-            onClick={() => {
-              if (key === "billTo" || step === "summary" || step === "items") {
-                setFormError(null);
-                setStep(key);
-              }
-            }}
+            onClick={() => selectStep(key)}
             type="button"
+            aria-pressed={step === key}
           >
             {label}
           </button>

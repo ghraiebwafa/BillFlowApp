@@ -11,7 +11,7 @@ import { billingApi } from "../../../domain/billing/api-paths";
 import { buildPageQuery, pagedSchema, type PagedResponse } from "../../../domain/billing/paging";
 import { paymentRecordSchema } from "../../../domain/billing/schemas";
 import type { PaymentRecord } from "../../../domain/billing/payment";
-import { paymentMethodLabel } from "../../../domain/billing/payment";
+import { paymentMethodLabel, paymentStatusLabel } from "../../../domain/billing/payment";
 import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 import { useDebouncedValue } from "../../../shared/lib/use-debounced-value";
 
@@ -80,12 +80,12 @@ export function PaymentsPage() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold">{row.invoiceNumber}</p>
-                  <p className="text-sm text-secondary">{paymentMethodLabel(row.method)}</p>
+                  <p className="text-sm text-secondary">{paymentMethodLabel(row.method, t)}</p>
                   <p className="mt-1 text-xs text-secondary">{formatDate(row.paymentDate)}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-accent">{formatMoney(row.amount, currency)}</p>
-                  <StatusBadge label={t("payments.completed")} variant="completed" />
+                  <StatusBadge label={paymentStatusLabel(row.status, t)} variant="completed" />
                 </div>
               </div>
             </li>
