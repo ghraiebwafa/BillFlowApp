@@ -13,23 +13,22 @@ public static class InvoicePaymentStatusCalculator
         if (currentStatus is InvoiceStatus.Draft or InvoiceStatus.Cancelled)
             return currentStatus;
 
-        if (completedTotal <= 0)
-        {
-            var reopened = currentStatus switch
-            {
-                InvoiceStatus.Paid or InvoiceStatus.PartiallyPaid => InvoiceStatus.Sent,
-                _ => currentStatus,
-            };
-
-            return IsPastDue(dueDateUtc) && reopened is InvoiceStatus.Sent or InvoiceStatus.Overdue
-                ? InvoiceStatus.Overdue
-                : reopened;
-        }
-
         if (completedTotal >= invoiceTotal)
             return InvoiceStatus.Paid;
 
-        return InvoiceStatus.PartiallyPaid;
+        // Past-due open balances are Overdue whether unpaid or partially paid —
+        // aligns with dashboard KPI and SyncOverdueStatusesForAllOwnersAsync.
+        if (IsPastDue(dueDateUtc))
+            return InvoiceStatus.Overdue;
+
+        if (completedTotal > 0)
+            return InvoiceStatus.PartiallyPaid;
+
+        return currentStatus switch
+        {
+            InvoiceStatus.Paid or InvoiceStatus.PartiallyPaid or InvoiceStatus.Overdue => InvoiceStatus.Sent,
+            _ => currentStatus,
+        };
     }
 
     private static bool IsPastDue(DateTime? dueDateUtc) =>

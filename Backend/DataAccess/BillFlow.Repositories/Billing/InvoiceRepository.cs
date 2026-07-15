@@ -112,7 +112,7 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
 
         return db.Invoices
             .Where(i =>
-                i.Status == InvoiceStatus.Sent
+                (i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.PartiallyPaid)
                 && i.DueDate < today)
             .ExecuteUpdateAsync(
                 setters => setters

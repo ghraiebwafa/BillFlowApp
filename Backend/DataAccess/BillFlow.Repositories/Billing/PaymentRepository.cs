@@ -32,6 +32,10 @@ public sealed class PaymentRepository(BillFlowDbContext db) : IPaymentRepository
             .ThenByDescending(p => p.CreatedAt)
             .ToListAsync(cancellationToken);
 
+    /// <summary>
+    /// Owner-wide payment history for the Payments page — completed payments only.
+    /// Use <see cref="GetByInvoiceAsync"/> for the full status set on a single invoice.
+    /// </summary>
     public async Task<PagedResult<Payment>> GetPagedByOwnerAsync(
         Guid ownerId,
         string? search = null,

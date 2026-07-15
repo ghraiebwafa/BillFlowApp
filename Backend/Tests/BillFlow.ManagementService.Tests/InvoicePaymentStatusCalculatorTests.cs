@@ -21,4 +21,30 @@ public sealed class InvoicePaymentStatusCalculatorTests
         Assert.Equal(
             expected,
             InvoicePaymentStatusCalculator.Resolve(current, total, paid));
+
+    [Fact]
+    public void Resolve_ReturnsOverdue_WhenPartiallyPaidAndPastDue()
+    {
+        var pastDue = DateTime.UtcNow.Date.AddDays(-3);
+        var status = InvoicePaymentStatusCalculator.Resolve(
+            InvoiceStatus.PartiallyPaid,
+            100m,
+            40m,
+            pastDue);
+
+        Assert.Equal(InvoiceStatus.Overdue, status);
+    }
+
+    [Fact]
+    public void Resolve_ReturnsOverdue_WhenSentAndPastDue()
+    {
+        var pastDue = DateTime.UtcNow.Date.AddDays(-1);
+        var status = InvoicePaymentStatusCalculator.Resolve(
+            InvoiceStatus.Sent,
+            100m,
+            0m,
+            pastDue);
+
+        Assert.Equal(InvoiceStatus.Overdue, status);
+    }
 }
