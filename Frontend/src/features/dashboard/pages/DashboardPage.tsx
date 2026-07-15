@@ -4,12 +4,11 @@ import { PageHeader } from "../../../shared/ui/PageHeader";
 import { LineChart } from "../../../shared/ui/LineChart";
 import { managementRequest } from "../../../shared/api/management-client";
 import { billingApi } from "../../../domain/billing/api-paths";
-import type { DashboardResponse } from "../../../domain/billing/dashboard";
+import { dashboardResponseSchema, type DashboardResponse } from "../../../domain/billing/dashboard";
 import { ApiError } from "../../../shared/api/api-error";
 import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 
 const PAID_STATUS = 3;
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function formatCurrentMonthRange(): string {
   const now = new Date();
@@ -17,6 +16,12 @@ function formatCurrentMonthRange(): string {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const fmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" });
   return `${fmt.format(start)} – ${fmt.format(end)}`;
+}
+
+function monthLabel(month: number): string {
+  return new Intl.DateTimeFormat(undefined, { month: "short" }).format(
+    new Date(2020, month - 1, 1),
+  );
 }
 
 function countPaidInvoices(data: DashboardResponse): number {
@@ -29,7 +34,9 @@ export function DashboardPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard", "summary"],
     queryFn: () =>
-      managementRequest<DashboardResponse>(billingApi.dashboard),
+      managementRequest<DashboardResponse>(billingApi.dashboard, {
+        schema: dashboardResponseSchema,
+      }),
   });
 
   const formatCurrency = (amount: number) =>
@@ -37,7 +44,7 @@ export function DashboardPage() {
 
   const chartPoints =
     data?.revenueByMonth.slice(-6).map((point) => ({
-      label: MONTHS[point.month - 1] ?? String(point.month),
+      label: monthLabel(point.month),
       value: point.revenue,
     })) ?? [];
 
@@ -48,7 +55,7 @@ export function DashboardPage() {
       {isLoading ? <div className="card">{t("app.loading")}</div> : null}
 
       {error ? (
-        <div className="card text-red-500">
+        <div className="card text-red-500" role="alert">
           {error instanceof ApiError ? error.message : t("dashboard.loadError")}
         </div>
       ) : null}

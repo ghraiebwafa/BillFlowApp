@@ -8,14 +8,16 @@ namespace BillFlow.Repositories.Billing;
 
 public sealed class ReportsRepository(BillFlowDbContext db) : IReportsRepository
 {
+    public const int MaxReportRows = 5_000;
+
     public async Task<IReadOnlyList<SalesReportRow>> GetSalesAsync(
         Guid ownerId,
-        DateTime? from = null,
-        DateTime? to = null,
+        DateTime from,
+        DateTime to,
         CancellationToken cancellationToken = default)
     {
         var query = db.Invoices
-            .Include(i => i.Client)
+            .AsNoTracking()
             .Where(i => i.OwnerId == ownerId
                 && (i.Status == InvoiceStatus.Sent
                     || i.Status == InvoiceStatus.Paid
@@ -26,6 +28,7 @@ public sealed class ReportsRepository(BillFlowDbContext db) : IReportsRepository
 
         return await query
             .OrderByDescending(i => i.InvoiceDate)
+            .Take(MaxReportRows)
             .Select(i => new SalesReportRow
             {
                 InvoiceNumber = i.InvoiceNumber,
@@ -42,26 +45,21 @@ public sealed class ReportsRepository(BillFlowDbContext db) : IReportsRepository
 
     public async Task<IReadOnlyList<PaymentReportRow>> GetPaymentsAsync(
         Guid ownerId,
-        DateTime? from = null,
-        DateTime? to = null,
+        DateTime from,
+        DateTime to,
         CancellationToken cancellationToken = default)
     {
-        var query = db.Payments
-            .Include(p => p.Invoice)
-            .ThenInclude(i => i.Client)
-            .Where(p => p.OwnerId == ownerId);
+        var fromUtc = ToUtcDate(from);
+        var toExclusive = ToUtcDate(to).AddDays(1);
 
-        if (from is not null)
-            query = query.Where(p => p.PaymentDate >= ToUtcDate(from.Value));
-
-        if (to is not null)
-        {
-            var toExclusive = ToUtcDate(to.Value).AddDays(1);
-            query = query.Where(p => p.PaymentDate < toExclusive);
-        }
-
-        return await query
+        return await db.Payments
+            .AsNoTracking()
+            .Where(p =>
+                p.OwnerId == ownerId
+                && p.PaymentDate >= fromUtc
+                && p.PaymentDate < toExclusive)
             .OrderByDescending(p => p.PaymentDate)
+            .Take(MaxReportRows)
             .Select(p => new PaymentReportRow
             {
                 PaymentDate = p.PaymentDate,
@@ -77,55 +75,64 @@ public sealed class ReportsRepository(BillFlowDbContext db) : IReportsRepository
 
     public async Task<IReadOnlyList<OutstandingReportRow>> GetOutstandingAsync(
         Guid ownerId,
+        DateTime from,
+        DateTime to,
         CancellationToken cancellationToken = default)
     {
-        var invoices = await db.Invoices
-            .Include(i => i.Client)
-            .Include(i => i.Payments)
+        var fromUtc = ToUtcDate(from);
+        var toExclusive = ToUtcDate(to).AddDays(1);
+
+        return await db.Invoices
+            .AsNoTracking()
             .Where(i =>
                 i.OwnerId == ownerId
                 && (i.Status == InvoiceStatus.Sent
                     || i.Status == InvoiceStatus.PartiallyPaid
-                    || i.Status == InvoiceStatus.Overdue))
+                    || i.Status == InvoiceStatus.Overdue)
+                && i.DueDate >= fromUtc
+                && i.DueDate < toExclusive)
             .OrderBy(i => i.DueDate)
-            .ToListAsync(cancellationToken);
-
-        return invoices
-            .Select(i =>
+            .Select(i => new
             {
-                var paid = i.Payments
+                i.InvoiceNumber,
+                ClientCompanyName = i.Client.CompanyName,
+                i.DueDate,
+                i.Status,
+                i.Total,
+                Paid = i.Payments
                     .Where(p => p.Status == PaymentStatus.Completed)
-                    .Sum(p => p.Amount);
-
-                return new OutstandingReportRow
-                {
-                    InvoiceNumber = i.InvoiceNumber,
-                    ClientCompanyName = i.Client.CompanyName,
-                    DueDate = i.DueDate,
-                    Status = i.Status,
-                    Total = i.Total,
-                    Paid = paid,
-                    Remaining = Math.Max(0m, i.Total - paid),
-                };
+                    .Sum(p => p.Amount),
             })
-            .Where(r => r.Remaining > 0)
-            .ToList();
+            .Where(x => x.Total - x.Paid > 0)
+            .Take(MaxReportRows)
+            .Select(x => new OutstandingReportRow
+            {
+                InvoiceNumber = x.InvoiceNumber,
+                ClientCompanyName = x.ClientCompanyName,
+                DueDate = x.DueDate,
+                Status = x.Status,
+                Total = x.Total,
+                Paid = x.Paid,
+                Remaining = x.Total - x.Paid,
+            })
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<TaxReportRow>> GetTaxesAsync(
         Guid ownerId,
-        DateTime? from = null,
-        DateTime? to = null,
+        DateTime from,
+        DateTime to,
         CancellationToken cancellationToken = default)
     {
         var query = db.Invoices
-            .Include(i => i.Client)
+            .AsNoTracking()
             .Where(i => i.OwnerId == ownerId && i.TaxAmount > 0);
 
         query = ApplyInvoiceDateFilter(query, from, to);
 
         return await query
             .OrderByDescending(i => i.InvoiceDate)
+            .Take(MaxReportRows)
             .Select(i => new TaxReportRow
             {
                 InvoiceNumber = i.InvoiceNumber,
@@ -141,19 +148,12 @@ public sealed class ReportsRepository(BillFlowDbContext db) : IReportsRepository
 
     private static IQueryable<Models.Entities.Invoice> ApplyInvoiceDateFilter(
         IQueryable<Models.Entities.Invoice> query,
-        DateTime? from,
-        DateTime? to)
+        DateTime from,
+        DateTime to)
     {
-        if (from is not null)
-            query = query.Where(i => i.InvoiceDate >= ToUtcDate(from.Value));
-
-        if (to is not null)
-        {
-            var toExclusive = ToUtcDate(to.Value).AddDays(1);
-            query = query.Where(i => i.InvoiceDate < toExclusive);
-        }
-
-        return query;
+        var fromUtc = ToUtcDate(from);
+        var toExclusive = ToUtcDate(to).AddDays(1);
+        return query.Where(i => i.InvoiceDate >= fromUtc && i.InvoiceDate < toExclusive);
     }
 
     private static DateTime ToUtcDate(DateTime date) =>

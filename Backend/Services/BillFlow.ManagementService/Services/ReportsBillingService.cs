@@ -21,10 +21,14 @@ public sealed class ReportsBillingService(
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        if (!TryValidateDateRange(from, to, out var dateError))
+        if (!TryNormalizeDateRange(from, to, out var range, out var dateError))
             return OperationResult<ReportExportFile>.Fail(dateError!, StatusCodes.Status400BadRequest);
 
-        var rows = await reportsRepository.GetSalesAsync(ownerId.Value!.Value, from, to, cancellationToken);
+        var rows = await reportsRepository.GetSalesAsync(
+            ownerId.Value!.Value,
+            range.From,
+            range.To,
+            cancellationToken);
 
         var export = ReportExporter.Export(
             "sales-report",
@@ -56,10 +60,14 @@ public sealed class ReportsBillingService(
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        if (!TryValidateDateRange(from, to, out var dateError))
+        if (!TryNormalizeDateRange(from, to, out var range, out var dateError))
             return OperationResult<ReportExportFile>.Fail(dateError!, StatusCodes.Status400BadRequest);
 
-        var rows = await reportsRepository.GetPaymentsAsync(ownerId.Value!.Value, from, to, cancellationToken);
+        var rows = await reportsRepository.GetPaymentsAsync(
+            ownerId.Value!.Value,
+            range.From,
+            range.To,
+            cancellationToken);
 
         var export = ReportExporter.Export(
             "payments-report",
@@ -82,13 +90,22 @@ public sealed class ReportsBillingService(
 
     public async Task<OperationResult<ReportExportFile>> ExportOutstandingAsync(
         ReportFormat format,
+        DateTime? from = null,
+        DateTime? to = null,
         CancellationToken cancellationToken = default)
     {
         var ownerId = BillingAuthorization.RequireBusinessOwnerId<ReportExportFile>(currentUser);
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        var rows = await reportsRepository.GetOutstandingAsync(ownerId.Value!.Value, cancellationToken);
+        if (!TryNormalizeDateRange(from, to, out var range, out var dateError, includeNearFutureDueDates: true))
+            return OperationResult<ReportExportFile>.Fail(dateError!, StatusCodes.Status400BadRequest);
+
+        var rows = await reportsRepository.GetOutstandingAsync(
+            ownerId.Value!.Value,
+            range.From,
+            range.To,
+            cancellationToken);
 
         var export = ReportExporter.Export(
             "outstanding-report",
@@ -119,10 +136,14 @@ public sealed class ReportsBillingService(
         if (ownerId.Error is not null)
             return ownerId.Error;
 
-        if (!TryValidateDateRange(from, to, out var dateError))
+        if (!TryNormalizeDateRange(from, to, out var range, out var dateError))
             return OperationResult<ReportExportFile>.Fail(dateError!, StatusCodes.Status400BadRequest);
 
-        var rows = await reportsRepository.GetTaxesAsync(ownerId.Value!.Value, from, to, cancellationToken);
+        var rows = await reportsRepository.GetTaxesAsync(
+            ownerId.Value!.Value,
+            range.From,
+            range.To,
+            cancellationToken);
 
         var export = ReportExporter.Export(
             "taxes-report",
@@ -143,21 +164,33 @@ public sealed class ReportsBillingService(
         return OperationResult<ReportExportFile>.Ok(ToFile(export));
     }
 
-    private static bool TryValidateDateRange(DateTime? from, DateTime? to, out string? error)
+    private static bool TryNormalizeDateRange(
+        DateTime? from,
+        DateTime? to,
+        out (DateTime From, DateTime To) range,
+        out string? error,
+        bool includeNearFutureDueDates = false)
     {
-        if (from is not null && to is not null && to.Value.Date < from.Value.Date)
+        var today = DateTime.UtcNow.Date;
+        // Outstanding defaults extend to the near future so upcoming dues remain visible.
+        var normalizedTo = (to ?? (includeNearFutureDueDates ? today.AddDays(90) : today)).Date;
+        var normalizedFrom = (from ?? normalizedTo.AddDays(-MaxReportRangeDays)).Date;
+
+        if (normalizedTo < normalizedFrom)
         {
+            range = default;
             error = "The 'to' date cannot be before the 'from' date.";
             return false;
         }
 
-        if (from is not null && to is not null
-            && (to.Value.Date - from.Value.Date).TotalDays > MaxReportRangeDays)
+        if ((normalizedTo - normalizedFrom).TotalDays > MaxReportRangeDays)
         {
+            range = default;
             error = $"Date range cannot exceed {MaxReportRangeDays} days.";
             return false;
         }
 
+        range = (normalizedFrom, normalizedTo);
         error = null;
         return true;
     }

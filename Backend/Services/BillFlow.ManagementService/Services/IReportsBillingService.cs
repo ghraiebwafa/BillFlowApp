@@ -19,6 +19,8 @@ public interface IReportsBillingService
 
     Task<OperationResult<ReportExportFile>> ExportOutstandingAsync(
         ReportFormat format,
+        DateTime? from = null,
+        DateTime? to = null,
         CancellationToken cancellationToken = default);
 
     Task<OperationResult<ReportExportFile>> ExportTaxesAsync(

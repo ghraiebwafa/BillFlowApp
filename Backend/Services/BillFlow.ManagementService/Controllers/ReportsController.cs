@@ -36,8 +36,10 @@ public class ReportsController(IReportsBillingService reportsService) : Controll
     [HttpGet("outstanding")]
     public Task<IActionResult> ExportOutstanding(
         [FromQuery] ReportFormat format = ReportFormat.Csv,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
         CancellationToken cancellationToken = default) =>
-        this.ToBillingFileResult(reportsService.ExportOutstandingAsync(format, cancellationToken));
+        this.ToBillingFileResult(reportsService.ExportOutstandingAsync(format, from, to, cancellationToken));
 
     [EnableRateLimiting(RateLimitPolicies.BillingExport)]
     [HttpGet("taxes")]
