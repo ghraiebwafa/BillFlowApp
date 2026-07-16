@@ -4,6 +4,7 @@ using BillFlow.Database.Configuration;
 using BillFlow.Database.DbContexts;
 using BillFlow.Repositories;
 using BillFlow.Shared.Configuration;
+using BillFlow.Shared.Email;
 using BillFlow.Shared.Extensions;
 using BillFlow.Shared.Middleware;
 using DotNetEnv;
@@ -46,6 +47,8 @@ public class Startup
 
         services.AddBillFlowRedis(redisOptions);
         services.AddBillFlowAuthTokens(jwtOptions, _environment);
+        services.AddBillFlowEmail();
+        services.AddSingleton(FrontendUrlOptions.FromEnvironment());
 
         services.AddDbContext<BillFlowDbContext>(options =>
             options.UseNpgsql(PostgresConnection.FromEnvironment()));

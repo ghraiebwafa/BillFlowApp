@@ -15,6 +15,7 @@ public sealed class RateLimitEmailMiddleware(RequestDelegate next)
         "/api/v1.0/auth/account/register",
         "/api/v1.0/auth/account/resend-otp",
         "/api/v1.0/auth/account/forgot-password",
+        "/api/v1.0/auth/account/resend-verification",
         "/api/v1.0/auth/account/verify-otp",
         "/api/v1.0/auth/account/reset-password",
     };

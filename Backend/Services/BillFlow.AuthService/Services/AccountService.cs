@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using BillFlow.Models.Dtos.Auth.Account;
 using BillFlow.Models.Entities;
 using BillFlow.Models.Shared.Enums;
@@ -5,6 +6,7 @@ using BillFlow.Repositories.Interfaces;
 using BillFlow.Repositories.Security;
 using BillFlow.Shared.Caching;
 using BillFlow.Shared.Configuration;
+using BillFlow.Shared.Email;
 using BillFlow.Shared.Security;
 
 namespace BillFlow.AuthService.Services;
@@ -12,12 +14,15 @@ namespace BillFlow.AuthService.Services;
 public sealed class AccountService(
     IUserRepository userRepository,
     IRefreshTokenRepository refreshTokenRepository,
+    IAuthEmailTokenRepository authEmailTokenRepository,
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     ICacheService cache,
     IUserSessionRevocationService sessionRevocation,
     ICurrentUserAccessor currentUser,
     IHostEnvironment environment,
+    IEmailSender emailSender,
+    FrontendUrlOptions frontendUrls,
     JwtOptions jwtOptions) : IAccountService
 {
     private static bool RequireEmailVerification() =>
@@ -27,10 +32,16 @@ public sealed class AccountService(
         RegisterRequest request,
         CancellationToken cancellationToken = default)
     {
+        var requireVerification = RequireEmailVerification();
+        // Same message for existing vs new when verification is required (anti-enumeration).
+        var acceptedMessage = requireVerification
+            ? AuthConstants.RegistrationVerifyEmailMessage
+            : AuthConstants.RegistrationSuccessMessage;
+
         if (await userRepository.EmailExistsAsync(request.Email, cancellationToken))
         {
             return AccountResult<MessageResponse>.Ok(
-                new MessageResponse { Message = AuthConstants.RegistrationSuccessMessage },
+                new MessageResponse { Message = acceptedMessage },
                 StatusCodes.Status200OK);
         }
 
@@ -42,14 +53,17 @@ public sealed class AccountService(
             PhoneNumber = request.PhoneNumber?.Trim(),
             Role = UserRole.Visitor,
             IsActive = true,
-            IsEmailConfirmed = !RequireEmailVerification(),
+            IsEmailConfirmed = !requireVerification,
         };
 
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
         await userRepository.CreateAsync(user, cancellationToken);
 
+        if (requireVerification)
+            await IssueAndEmailTokenAsync(user, AuthEmailTokenPurpose.EmailVerification, cancellationToken);
+
         return AccountResult<MessageResponse>.Ok(
-            new MessageResponse { Message = AuthConstants.RegistrationSuccessMessage },
+            new MessageResponse { Message = acceptedMessage },
             StatusCodes.Status200OK);
     }
 
@@ -139,33 +153,113 @@ public sealed class AccountService(
         return AccountResult<AuthResponse>.Ok(response);
     }
 
+    public async Task<AccountResult<MessageResponse>> ForgotPasswordAsync(
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var generic = new MessageResponse { Message = AuthConstants.ForgotPasswordAcceptedMessage };
+        var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
+        if (user is { IsActive: true })
+            await IssueAndEmailTokenAsync(user, AuthEmailTokenPurpose.PasswordReset, cancellationToken);
+
+        return AccountResult<MessageResponse>.Ok(generic);
+    }
+
     public async Task<AccountResult<MessageResponse>> ResetPasswordAsync(
         ResetPasswordRequest request,
         CancellationToken cancellationToken = default)
     {
-        if (!DevFeatureFlags.IsDevResetPasswordEnabled(environment))
+        if (!string.IsNullOrWhiteSpace(request.Token))
         {
-            return AccountResult<MessageResponse>.Fail(
-                "Not found.",
-                StatusCodes.Status404NotFound);
+            var hash = TokenHasher.Hash(request.Token.Trim());
+            var stored = await authEmailTokenRepository.GetActiveByHashAsync(
+                hash,
+                AuthEmailTokenPurpose.PasswordReset,
+                cancellationToken);
+
+            if (stored?.User is null || !stored.User.IsActive)
+            {
+                return AccountResult<MessageResponse>.Fail(
+                    AuthConstants.GenericResetFailureMessage,
+                    StatusCodes.Status400BadRequest);
+            }
+
+            stored.User.PasswordHash = passwordHasher.HashPassword(stored.User, request.NewPassword);
+            await userRepository.UpdateAsync(stored.User, cancellationToken);
+            await authEmailTokenRepository.MarkUsedAsync(stored.Id, cancellationToken);
+            await sessionRevocation.RevokeAllSessionsAsync(stored.User.Id, cancellationToken);
+
+            return AccountResult<MessageResponse>.Ok(new MessageResponse
+            {
+                Message = "Password has been reset successfully.",
+            });
         }
 
-        var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
-        if (user is null || !user.IsActive)
+        if (DevFeatureFlags.IsDevResetPasswordEnabled(environment)
+            && !string.IsNullOrWhiteSpace(request.Email))
+        {
+            var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
+            if (user is null || !user.IsActive)
+            {
+                return AccountResult<MessageResponse>.Fail(
+                    AuthConstants.GenericResetFailureMessage,
+                    StatusCodes.Status400BadRequest);
+            }
+
+            user.PasswordHash = passwordHasher.HashPassword(user, request.NewPassword);
+            await userRepository.UpdateAsync(user, cancellationToken);
+            await sessionRevocation.RevokeAllSessionsAsync(user.Id, cancellationToken);
+
+            return AccountResult<MessageResponse>.Ok(new MessageResponse
+            {
+                Message = "Password has been reset successfully.",
+            });
+        }
+
+        return AccountResult<MessageResponse>.Fail(
+            AuthConstants.GenericResetFailureMessage,
+            StatusCodes.Status400BadRequest);
+    }
+
+    public async Task<AccountResult<MessageResponse>> ConfirmEmailAsync(
+        ConfirmEmailRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var hash = TokenHasher.Hash(request.Token.Trim());
+        var stored = await authEmailTokenRepository.GetActiveByHashAsync(
+            hash,
+            AuthEmailTokenPurpose.EmailVerification,
+            cancellationToken);
+
+        if (stored?.User is null)
         {
             return AccountResult<MessageResponse>.Fail(
-                AuthConstants.GenericResetFailureMessage,
+                AuthConstants.GenericOtpFailureMessage,
                 StatusCodes.Status400BadRequest);
         }
 
-        user.PasswordHash = passwordHasher.HashPassword(user, request.NewPassword);
-        await userRepository.UpdateAsync(user, cancellationToken);
-        await sessionRevocation.RevokeAllSessionsAsync(user.Id, cancellationToken);
+        await userRepository.ConfirmEmailAsync(stored.UserId, cancellationToken);
+        await authEmailTokenRepository.MarkUsedAsync(stored.Id, cancellationToken);
 
         return AccountResult<MessageResponse>.Ok(new MessageResponse
         {
-            Message = "Password has been reset successfully.",
+            Message = "Email verified successfully. You can sign in now.",
         });
+    }
+
+    public async Task<AccountResult<MessageResponse>> ResendVerificationAsync(
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var generic = new MessageResponse { Message = AuthConstants.VerificationEmailSentMessage };
+        if (!RequireEmailVerification())
+            return AccountResult<MessageResponse>.Ok(generic);
+
+        var user = await userRepository.GetByEmailAsync(request.Email, cancellationToken);
+        if (user is { IsActive: true, IsEmailConfirmed: false })
+            await IssueAndEmailTokenAsync(user, AuthEmailTokenPurpose.EmailVerification, cancellationToken);
+
+        return AccountResult<MessageResponse>.Ok(generic);
     }
 
     public async Task<AccountResult<UserProfileResponse>> GetProfileAsync(
@@ -305,6 +399,49 @@ public sealed class AccountService(
         {
             Message = "Account permanently deleted.",
         });
+    }
+
+    private async Task IssueAndEmailTokenAsync(
+        User user,
+        AuthEmailTokenPurpose purpose,
+        CancellationToken cancellationToken)
+    {
+        await authEmailTokenRepository.InvalidateActiveAsync(user.Id, purpose, cancellationToken);
+
+        var plain = CreateSecureToken();
+        var lifetime = purpose == AuthEmailTokenPurpose.PasswordReset
+            ? TimeSpan.FromHours(1)
+            : TimeSpan.FromHours(24);
+
+        await authEmailTokenRepository.CreateAsync(
+            new AuthEmailToken
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                TokenHash = TokenHasher.Hash(plain),
+                Purpose = purpose,
+                ExpiresAt = DateTime.UtcNow.Add(lifetime),
+            },
+            cancellationToken);
+
+        var url = purpose == AuthEmailTokenPurpose.PasswordReset
+            ? frontendUrls.ResetPasswordUrl(plain)
+            : frontendUrls.VerifyEmailUrl(plain);
+
+        var message = purpose == AuthEmailTokenPurpose.PasswordReset
+            ? AuthEmailComposer.PasswordReset(user.Email, user.FullName, url)
+            : AuthEmailComposer.EmailVerification(user.Email, user.FullName, url);
+
+        await emailSender.SendAsync(message, cancellationToken);
+    }
+
+    private static string CreateSecureToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        return Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 
     private async Task<AuthResponse> IssueAuthResponseAsync(

@@ -20,6 +20,7 @@ public class BillFlowDbContext : DbContext
     public DbSet<CompanySettings> CompanySettings => Set<CompanySettings>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<InvoiceShareToken> InvoiceShareTokens => Set<InvoiceShareToken>();
+    public DbSet<AuthEmailToken> AuthEmailTokens => Set<AuthEmailToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -303,9 +304,31 @@ public class BillFlowDbContext : DbContext
             entity.Property(x => x.InvoiceFooterNote)
                 .HasMaxLength(500);
 
+            entity.Property(x => x.LogoContentType)
+                .HasMaxLength(100);
+
             entity.HasOne(x => x.Owner)
                 .WithOne(x => x.CompanySettings)
                 .HasForeignKey<CompanySettings>(x => x.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AuthEmailToken>(entity =>
+        {
+            entity.HasKey(x => x.Id);
+
+            entity.Property(x => x.TokenHash)
+                .HasMaxLength(128)
+                .IsRequired();
+
+            entity.HasIndex(x => new { x.TokenHash, x.Purpose })
+                .IsUnique();
+
+            entity.HasIndex(x => new { x.UserId, x.Purpose, x.ExpiresAt });
+
+            entity.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

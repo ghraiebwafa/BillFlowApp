@@ -3,6 +3,8 @@ import { LoginPage } from "../features/auth/pages/LoginPage";
 import { RegisterPage } from "../features/auth/pages/RegisterPage";
 import { WelcomePage } from "../features/auth/pages/WelcomePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
+import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { DashboardPage } from "../features/dashboard/pages/DashboardPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { CompanySettingsPage } from "../features/company-settings/pages/CompanySettingsPage";
@@ -36,6 +38,8 @@ export function AppRouter() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
         </Route>
 
         <Route element={<RequireAuth />}>

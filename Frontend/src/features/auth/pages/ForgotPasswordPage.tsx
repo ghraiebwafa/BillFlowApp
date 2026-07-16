@@ -38,7 +38,7 @@ export function ForgotPasswordPage() {
 
     try {
       const data = await requestJson<unknown>(
-        `${env.authApiUrl}/api/v1.0/auth/account/reset-password`,
+        `${env.authApiUrl}/api/v1.0/auth/account/forgot-password`,
         { method: "POST", body: values },
       );
       const response = messageResponseSchema.parse(data);

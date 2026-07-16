@@ -7,6 +7,19 @@ public static class AuthConstants
     public const string RegistrationSuccessMessage =
         "Account created successfully. You can sign in now.";
 
+    /// <summary>
+    /// Generic when REQUIRE_EMAIL_VERIFICATION is on — same for new and existing emails
+    /// to avoid account enumeration.
+    /// </summary>
+    public const string RegistrationVerifyEmailMessage =
+        "If this email is eligible, check your inbox for a verification link before signing in.";
+
+    public const string ForgotPasswordAcceptedMessage =
+        "If an account exists for that email, a reset link has been sent.";
+
+    public const string VerificationEmailSentMessage =
+        "If an unverified account exists for that email, a verification link has been sent.";
+
     public const string GenericAuthFailureMessage = "Invalid email or password.";
 
     public const string EmailNotVerifiedMessage =

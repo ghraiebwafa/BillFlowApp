@@ -10,7 +10,13 @@ public interface IAccountService
 
     Task<AccountResult<AuthResponse>> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default);
 
+    Task<AccountResult<MessageResponse>> ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default);
+
     Task<AccountResult<MessageResponse>> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default);
+
+    Task<AccountResult<MessageResponse>> ConfirmEmailAsync(ConfirmEmailRequest request, CancellationToken cancellationToken = default);
+
+    Task<AccountResult<MessageResponse>> ResendVerificationAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default);
 
     Task<AccountResult<UserProfileResponse>> GetProfileAsync(CancellationToken cancellationToken = default);
 

@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<ICompanySettingsRepository, CompanySettingsRepository>();
         services.AddScoped<IAuditEventRepository, AuditEventRepository>();
         services.AddScoped<IInvoiceShareTokenRepository, InvoiceShareTokenRepository>();
+        services.AddScoped<IAuthEmailTokenRepository, AuthEmailTokenRepository>();
         services.AddScoped<IUserSessionRevocationService, UserSessionRevocationService>();
         services.AddScoped<ITokenSessionService, PersistedTokenSessionService>();
         services.AddSingleton<IPasswordHasher, PasswordHasherService>();

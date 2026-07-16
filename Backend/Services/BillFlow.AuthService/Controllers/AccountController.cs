@@ -35,6 +35,14 @@ public class AccountController(IAccountService accountService) : ControllerBase
         CancellationToken cancellationToken) =>
         ToActionResult(accountService.RefreshTokenAsync(request, cancellationToken));
 
+    [EnableRateLimiting(RateLimitPolicies.AuthStrict)]
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
+    public Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken) =>
+        ToActionResult(accountService.ForgotPasswordAsync(request, cancellationToken));
+
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
     [HttpPost("reset-password")]
     [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
@@ -42,6 +50,22 @@ public class AccountController(IAccountService accountService) : ControllerBase
         [FromBody] ResetPasswordRequest request,
         CancellationToken cancellationToken) =>
         ToActionResult(accountService.ResetPasswordAsync(request, cancellationToken));
+
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
+    [HttpPost("confirm-email")]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
+    public Task<IActionResult> ConfirmEmail(
+        [FromBody] ConfirmEmailRequest request,
+        CancellationToken cancellationToken) =>
+        ToActionResult(accountService.ConfirmEmailAsync(request, cancellationToken));
+
+    [EnableRateLimiting(RateLimitPolicies.AuthStrict)]
+    [HttpPost("resend-verification")]
+    [ProducesResponseType(typeof(MessageResponse), StatusCodes.Status200OK)]
+    public Task<IActionResult> ResendVerification(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken) =>
+        ToActionResult(accountService.ResendVerificationAsync(request, cancellationToken));
 
     [Authorize]
     [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
