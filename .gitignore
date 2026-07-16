@@ -157,3 +157,4 @@ appsettings.Local.json
 Generated/*.tsbuildinfo
 *.tsbuildinfo
 
+.nuget-local/

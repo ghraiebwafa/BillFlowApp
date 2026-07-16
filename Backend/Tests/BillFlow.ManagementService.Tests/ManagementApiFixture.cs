@@ -2,10 +2,14 @@ extern alias Auth;
 
 using BillFlow.Database.DbContexts;
 using BillFlow.ManagementService.Services;
+using BillFlow.Shared.Caching;
+using BillFlow.Shared.Configuration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using StackExchange.Redis;
 using Testcontainers.PostgreSql;
 using Testcontainers.Redis;
 using Xunit;
@@ -34,6 +38,7 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         .WithImage("redis:7-alpine")
         .WithCommand("redis-server", "--requirepass", RedisPassword)
         .Build();
+
     private readonly Dictionary<string, string?> _originalEnvironment = new();
     private static readonly string[] ManagedEnvironmentKeys =
     [
@@ -57,6 +62,9 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         "SUPERADMIN_FULL_NAME",
     ];
 
+    private string _dbConnectionString = null!;
+    private string _redisConnectionString = null!;
+
     public WebApplicationFactory<Program> ManagementFactory { get; private set; } = null!;
     public WebApplicationFactory<Auth::Program> AuthFactory { get; private set; } = null!;
 
@@ -70,12 +78,17 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         await _postgres.StartAsync();
         await _redis.StartAsync();
 
+        _dbConnectionString = _postgres.GetConnectionString();
+        _redisConnectionString =
+            $"{_redis.Hostname}:{_redis.GetMappedPublicPort(6379)},password={RedisPassword},abortConnect=false";
+
         ConfigureSharedEnvironment();
         await ApplyMigrationsAsync();
 
         ManagementFactory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Development");
+            builder.ConfigureTestServices(PinInfrastructure);
         });
 
         _ = ManagementFactory.CreateClient();
@@ -90,6 +103,7 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         {
             builder.UseEnvironment("Development");
             builder.UseSetting("APPLY_MIGRATIONS", "false");
+            builder.ConfigureTestServices(PinInfrastructure);
         });
 
         _ = AuthFactory.CreateClient();
@@ -102,6 +116,29 @@ public sealed class ManagementApiFixture : IAsyncLifetime
         await _redis.DisposeAsync();
         await _postgres.DisposeAsync();
         RestoreOriginalEnvironment();
+    }
+
+    private void PinInfrastructure(IServiceCollection services)
+    {
+        services.RemoveAll<DbContextOptions<BillFlowDbContext>>();
+        services.RemoveAll<BillFlowDbContext>();
+        services.AddDbContext<BillFlowDbContext>(options =>
+            options.UseNpgsql(_dbConnectionString));
+
+        services.RemoveAll<RedisOptions>();
+        services.RemoveAll<IConnectionMultiplexer>();
+        services.RemoveAll<ICacheService>();
+
+        var redisOptions = new RedisOptions
+        {
+            Host = _redis.Hostname,
+            Port = _redis.GetMappedPublicPort(6379),
+            Password = RedisPassword,
+        };
+        services.AddSingleton(redisOptions);
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+            ConnectionMultiplexer.Connect(_redisConnectionString));
+        services.AddSingleton<ICacheService, RedisCacheService>();
     }
 
     private void ConfigureSharedEnvironment()
@@ -148,7 +185,7 @@ public sealed class ManagementApiFixture : IAsyncLifetime
     private async Task ApplyMigrationsAsync()
     {
         var options = new DbContextOptionsBuilder<BillFlowDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(_dbConnectionString)
             .Options;
 
         await using var db = new BillFlowDbContext(options);

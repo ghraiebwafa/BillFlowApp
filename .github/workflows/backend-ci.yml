@@ -34,4 +34,7 @@ jobs:
         run: dotnet build --no-restore -c Release
 
       - name: Test
-        run: dotnet test --no-build -c Release --verbosity normal
+        run: |
+          # Run assemblies sequentially — both fixtures mutate process-wide DB_*/REDIS_* env.
+          dotnet test Tests/BillFlow.AuthService.Tests/BillFlow.AuthService.Tests.csproj --no-build -c Release --verbosity normal
+          dotnet test Tests/BillFlow.ManagementService.Tests/BillFlow.ManagementService.Tests.csproj --no-build -c Release --verbosity normal

@@ -13,6 +13,7 @@ namespace BillFlow.Database.Migrations
     [DbContext(typeof(BillFlowDbContext))]
     partial class BillFlowDbContextModelSnapshot : ModelSnapshot
     {
+        /// <inheritdoc />
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -21,6 +22,43 @@ namespace BillFlow.Database.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+
+            modelBuilder.Entity("BillFlow.Models.Entities.AuthEmailToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Purpose")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash", "Purpose")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Purpose", "ExpiresAt");
+
+                    b.ToTable("AuthEmailTokens");
+                });
 
             modelBuilder.Entity("BillFlow.Models.Entities.AuditEvent", b =>
                 {
@@ -105,6 +143,9 @@ namespace BillFlow.Database.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("LastPaymentReminderSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Notes")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -147,6 +188,16 @@ namespace BillFlow.Database.Migrations
                         .HasMaxLength(7)
                         .HasColumnType("character varying(7)");
 
+                    b.Property<bool>("EnablePaymentReminders")
+                        .HasColumnType("boolean");
+
+                    b.Property<byte[]>("LogoBytes")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("LogoContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("CompanyName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -182,6 +233,9 @@ namespace BillFlow.Database.Migrations
                         .HasColumnType("character varying(20)");
 
                     b.Property<int>("PaymentTermsDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ReminderDaysBeforeDue")
                         .HasColumnType("integer");
 
                     b.Property<string>("PhoneNumber")
@@ -561,6 +615,18 @@ namespace BillFlow.Database.Migrations
                         .IsRequired();
 
                     b.Navigation("Owner");
+                });
+
+
+            modelBuilder.Entity("BillFlow.Models.Entities.AuthEmailToken", b =>
+                {
+                    b.HasOne("BillFlow.Models.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("BillFlow.Models.Entities.CompanySettings", b =>
