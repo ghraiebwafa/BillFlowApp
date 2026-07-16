@@ -79,7 +79,8 @@ public sealed class AuthApiFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await Factory.DisposeAsync();
+        if (Factory is not null)
+            await Factory.DisposeAsync();
         await _redis.DisposeAsync();
         await _postgres.DisposeAsync();
     }

@@ -307,6 +307,12 @@ public class BillFlowDbContext : DbContext
             entity.Property(x => x.LogoContentType)
                 .HasMaxLength(100);
 
+            entity.Property(x => x.EnablePaymentReminders)
+                .HasDefaultValue(false);
+
+            entity.Property(x => x.ReminderDaysBeforeDue)
+                .HasDefaultValue(3);
+
             entity.HasOne(x => x.Owner)
                 .WithOne(x => x.CompanySettings)
                 .HasForeignKey<CompanySettings>(x => x.OwnerId)
@@ -316,6 +322,8 @@ public class BillFlowDbContext : DbContext
         modelBuilder.Entity<AuthEmailToken>(entity =>
         {
             entity.HasKey(x => x.Id);
+
+            entity.Ignore(x => x.IsActive);
 
             entity.Property(x => x.TokenHash)
                 .HasMaxLength(128)
