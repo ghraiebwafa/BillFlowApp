@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BillFlow.Models.Dtos.Billing;
 
 public class CompanySettingsResponse
@@ -27,6 +29,15 @@ public class CompanySettingsResponse
     public string? BrandColor { get; set; }
 
     public string? InvoiceFooterNote { get; set; }
+
+    public bool HasLogo { get; set; }
+
+    public bool EnablePaymentReminders { get; set; }
+
+    public int ReminderDaysBeforeDue { get; set; }
+
+    [JsonIgnore]
+    public byte[]? LogoBytes { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

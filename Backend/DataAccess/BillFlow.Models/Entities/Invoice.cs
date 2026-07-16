@@ -32,6 +32,8 @@ public class Invoice
 
     public string? Notes { get; set; }
 
+    public DateTime? LastPaymentReminderSentAt { get; set; }
+
     public bool IsDeleted { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

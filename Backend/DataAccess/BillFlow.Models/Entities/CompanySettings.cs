@@ -32,6 +32,14 @@ public class CompanySettings
 
     public string? InvoiceFooterNote { get; set; }
 
+    public byte[]? LogoBytes { get; set; }
+
+    public string? LogoContentType { get; set; }
+
+    public bool EnablePaymentReminders { get; set; }
+
+    public int ReminderDaysBeforeDue { get; set; } = 3;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? UpdatedAt { get; set; }

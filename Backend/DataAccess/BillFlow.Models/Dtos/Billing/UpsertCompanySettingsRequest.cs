@@ -47,4 +47,9 @@ public class UpsertCompanySettingsRequest
 
     [MaxLength(500)]
     public string? InvoiceFooterNote { get; set; }
+
+    public bool EnablePaymentReminders { get; set; }
+
+    [Range(0, 30)]
+    public int ReminderDaysBeforeDue { get; set; } = 3;
 }

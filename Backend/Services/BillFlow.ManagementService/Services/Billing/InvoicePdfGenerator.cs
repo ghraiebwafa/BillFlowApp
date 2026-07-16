@@ -27,6 +27,12 @@ public sealed class InvoicePdfGenerator : IInvoicePdfGenerator
                     {
                         row.RelativeItem().Column(column =>
                         {
+                            if (issuer?.LogoBytes is { Length: > 0 })
+                            {
+                                column.Item().Width(96).Height(48).Image(issuer.LogoBytes).FitArea();
+                                column.Item().PaddingTop(6);
+                            }
+
                             column.Item().Text(companyName).FontSize(16).Bold().FontColor(accent);
                             if (!string.IsNullOrWhiteSpace(issuer?.Address))
                                 column.Item().Text(issuer.Address);

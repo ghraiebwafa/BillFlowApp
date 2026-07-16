@@ -42,6 +42,11 @@ public interface IInvoiceRepository
 
     Task<int> SyncOverdueStatusesForAllOwnersAsync(CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<Invoice>> GetInvoicesNeedingPaymentRemindersAsync(
+        CancellationToken cancellationToken = default);
+
+    Task MarkPaymentReminderSentAsync(Guid invoiceId, CancellationToken cancellationToken = default);
+
     Task DeleteLineItemsAsync(Guid invoiceId, CancellationToken cancellationToken = default);
 
     Task SoftDeleteAsync(Guid ownerId, Guid invoiceId, CancellationToken cancellationToken = default);

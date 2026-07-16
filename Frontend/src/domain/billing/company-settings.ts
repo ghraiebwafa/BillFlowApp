@@ -12,6 +12,9 @@ export type CompanySettingsResponse = {
   timeZone?: string | null;
   brandColor?: string | null;
   invoiceFooterNote?: string | null;
+  hasLogo?: boolean;
+  enablePaymentReminders?: boolean;
+  reminderDaysBeforeDue?: number;
   createdAt: string;
   updatedAt?: string | null;
 };
@@ -30,6 +33,8 @@ export type UpsertCompanySettingsRequest = {
   timeZone?: string;
   brandColor?: string;
   invoiceFooterNote?: string;
+  enablePaymentReminders?: boolean;
+  reminderDaysBeforeDue?: number;
 };
 
 export const defaultCompanySettingsForm = {
@@ -46,6 +51,8 @@ export const defaultCompanySettingsForm = {
   timeZone: "",
   brandColor: "#FF6B00",
   invoiceFooterNote: "",
+  enablePaymentReminders: false,
+  reminderDaysBeforeDue: 3,
 };
 
 export function mapSettingsToForm(
@@ -65,6 +72,8 @@ export function mapSettingsToForm(
     timeZone: settings.timeZone ?? "",
     brandColor: settings.brandColor ?? "#FF6B00",
     invoiceFooterNote: settings.invoiceFooterNote ?? "",
+    enablePaymentReminders: settings.enablePaymentReminders ?? false,
+    reminderDaysBeforeDue: settings.reminderDaysBeforeDue ?? 3,
   };
 }
 
@@ -90,5 +99,7 @@ export function mapFormToRequest(
     timeZone: optional(values.timeZone),
     brandColor: optional(values.brandColor),
     invoiceFooterNote: optional(values.invoiceFooterNote),
+    enablePaymentReminders: values.enablePaymentReminders,
+    reminderDaysBeforeDue: values.reminderDaysBeforeDue,
   };
 }

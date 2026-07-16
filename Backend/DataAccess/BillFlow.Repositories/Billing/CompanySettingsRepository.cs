@@ -39,10 +39,21 @@ public sealed class CompanySettingsRepository(BillFlowDbContext db) : ICompanySe
             existing.TimeZone = settings.TimeZone;
             existing.BrandColor = settings.BrandColor;
             existing.InvoiceFooterNote = settings.InvoiceFooterNote;
+            existing.EnablePaymentReminders = settings.EnablePaymentReminders;
+            existing.ReminderDaysBeforeDue = settings.ReminderDaysBeforeDue;
             existing.UpdatedAt = DateTime.UtcNow;
             settings = existing;
         }
 
+        await db.SaveChangesAsync(cancellationToken);
+        return settings;
+    }
+
+    public async Task<CompanySettings> SaveAsync(
+        CompanySettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        settings.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(cancellationToken);
         return settings;
     }

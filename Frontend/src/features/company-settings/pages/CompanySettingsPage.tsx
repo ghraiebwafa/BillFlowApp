@@ -20,6 +20,9 @@ import {
   companySettingsQueryKey,
   fetchCompanySettings,
 } from "../../../domain/billing/company-settings-api";
+import { env } from "../../../shared/config/env";
+import { useSessionStore } from "../../../shared/auth/session-store";
+import { toast } from "../../../shared/ui/toast-store";
 
 const companySettingsSchema = z.object({
   companyName: z.string().trim().min(1).max(200),
@@ -35,11 +38,45 @@ const companySettingsSchema = z.object({
   timeZone: z.string().max(100),
   brandColor: z.union([z.literal(""), z.string().regex(/^#?[0-9A-Fa-f]{6}$/)]),
   invoiceFooterNote: z.string().max(500),
+  enablePaymentReminders: z.boolean(),
+  reminderDaysBeforeDue: z.number().int().min(0).max(30),
 });
 
 type CompanySettingsForm = z.infer<typeof companySettingsSchema>;
 
 type SettingsTab = "general" | "invoice" | "payment" | "email";
+
+async function uploadLogo(file: File): Promise<CompanySettingsResponse> {
+  const { refreshSession, clearSession } = useSessionStore.getState();
+
+  const execute = () => {
+    const { accessToken } = useSessionStore.getState();
+    if (!accessToken) throw new ApiError("Authentication required.", 401);
+    const body = new FormData();
+    body.append("file", file);
+    return fetch(`${env.managementApiUrl}${billingApi.companySettingsLogo}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      body,
+    });
+  };
+
+  let response = await execute();
+  if (response.status === 401) {
+    const refreshed = await refreshSession();
+    if (!refreshed) {
+      clearSession();
+      throw new ApiError("Session expired.", 401);
+    }
+    response = await execute();
+  }
+
+  if (!response.ok) {
+    throw new ApiError("Logo upload failed.", response.status);
+  }
+
+  return (await response.json()) as CompanySettingsResponse;
+}
 
 export function CompanySettingsPage() {
   const { t } = useTranslation();
@@ -47,6 +84,7 @@ export function CompanySettingsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<SettingsTab>("general");
+  const [logoBusy, setLogoBusy] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: companySettingsQueryKey,
@@ -62,6 +100,8 @@ export function CompanySettingsPage() {
     resolver: zodResolver(companySettingsSchema),
     defaultValues: defaultCompanySettingsForm,
   });
+
+  const hasLogo = Boolean(data?.hasLogo);
 
   useEffect(() => {
     if (data) {
@@ -94,6 +134,35 @@ export function CompanySettingsPage() {
     setFormError(null);
     await saveMutation.mutateAsync(values);
   });
+
+  const onLogoSelected = async (file: File | undefined) => {
+    if (!file) return;
+    setLogoBusy(true);
+    try {
+      const saved = await uploadLogo(file);
+      queryClient.setQueryData(companySettingsQueryKey, saved);
+      toast(t("settings.logoUploaded"), "success");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : t("settings.logoError"), "error");
+    } finally {
+      setLogoBusy(false);
+    }
+  };
+
+  const onRemoveLogo = async () => {
+    setLogoBusy(true);
+    try {
+      const saved = await managementRequest<CompanySettingsResponse>(billingApi.companySettingsLogo, {
+        method: "DELETE",
+      });
+      queryClient.setQueryData(companySettingsQueryKey, saved);
+      toast(t("settings.logoRemoved"), "success");
+    } catch (err) {
+      toast(err instanceof ApiError ? err.message : t("settings.logoError"), "error");
+    } finally {
+      setLogoBusy(false);
+    }
+  };
 
   const isNew = data === null && !isLoading && !error;
 
@@ -170,6 +239,37 @@ export function CompanySettingsPage() {
                   error={errors.timeZone?.message}
                   {...register("timeZone")}
                 />
+                {!isNew ? (
+                  <div className="md:col-span-2 space-y-2">
+                    <p className="text-sm font-medium">{t("settings.fields.logo")}</p>
+                    <p className="text-xs text-secondary">{t("settings.logoHint")}</p>
+                    <p className="text-sm text-secondary">
+                      {hasLogo ? t("settings.logoPresent") : t("settings.logoMissing")}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="btn-secondary cursor-pointer">
+                        <input
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          disabled={logoBusy}
+                          type="file"
+                          onChange={(e) => void onLogoSelected(e.target.files?.[0])}
+                        />
+                        {logoBusy ? t("app.loading") : t("settings.uploadLogo")}
+                      </label>
+                      {hasLogo ? (
+                        <button
+                          className="btn-ghost text-sm text-red-500"
+                          disabled={logoBusy}
+                          type="button"
+                          onClick={() => void onRemoveLogo()}
+                        >
+                          {t("settings.removeLogo")}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
 
@@ -230,7 +330,21 @@ export function CompanySettingsPage() {
             ) : null}
 
             {tab === "payment" ? (
-              <p className="md:col-span-2 text-sm text-secondary">{t("settings.paymentTabHint")}</p>
+              <>
+                <p className="md:col-span-2 text-sm text-secondary">{t("settings.paymentTabHint")}</p>
+                <label className="md:col-span-2 flex items-center gap-2 text-sm">
+                  <input type="checkbox" {...register("enablePaymentReminders")} />
+                  {t("settings.fields.enablePaymentReminders")}
+                </label>
+                <FormField
+                  label={t("settings.fields.reminderDaysBeforeDue")}
+                  type="number"
+                  min={0}
+                  max={30}
+                  error={errors.reminderDaysBeforeDue?.message}
+                  {...register("reminderDaysBeforeDue", { valueAsNumber: true })}
+                />
+              </>
             ) : null}
           </div>
 

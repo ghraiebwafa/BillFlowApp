@@ -121,6 +121,41 @@ public sealed class InvoiceRepository(BillFlowDbContext db) : IInvoiceRepository
                 cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Invoice>> GetInvoicesNeedingPaymentRemindersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var today = DateTime.UtcNow.Date;
+        var reminderCooldown = DateTime.UtcNow.AddHours(-20);
+
+        return await db.Invoices
+            .AsNoTracking()
+            .Include(i => i.Client)
+            .Include(i => i.Payments)
+            .Include(i => i.Owner)
+            .ThenInclude(o => o!.CompanySettings)
+            .Where(i =>
+                (i.Status == InvoiceStatus.Sent
+                    || i.Status == InvoiceStatus.Overdue
+                    || i.Status == InvoiceStatus.PartiallyPaid)
+                && i.Client.Email != null
+                && i.Client.Email != ""
+                && i.Owner.CompanySettings != null
+                && i.Owner.CompanySettings.EnablePaymentReminders
+                && i.DueDate.Date <= today.AddDays(i.Owner.CompanySettings.ReminderDaysBeforeDue)
+                && (i.LastPaymentReminderSentAt == null || i.LastPaymentReminderSentAt < reminderCooldown))
+            .Take(200)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task MarkPaymentReminderSentAsync(Guid invoiceId, CancellationToken cancellationToken = default) =>
+        db.Invoices
+            .Where(i => i.Id == invoiceId)
+            .ExecuteUpdateAsync(
+                setters => setters
+                    .SetProperty(i => i.LastPaymentReminderSentAt, DateTime.UtcNow)
+                    .SetProperty(i => i.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
+
     public async Task<Invoice> CreateAsync(Invoice invoice, CancellationToken cancellationToken = default)
     {
         invoice.CreatedAt = DateTime.UtcNow;

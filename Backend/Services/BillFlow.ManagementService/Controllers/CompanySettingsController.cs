@@ -25,4 +25,34 @@ public class CompanySettingsController(ICompanySettingsBillingService companySet
         [FromBody] UpsertCompanySettingsRequest request,
         CancellationToken cancellationToken) =>
         companySettingsService.UpsertAsync(request, cancellationToken).ToBillingActionResult();
+
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
+    [HttpPost("logo")]
+    [RequestSizeLimit(2_100_000)]
+    public async Task<IActionResult> UploadLogo(IFormFile? file, CancellationToken cancellationToken)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { detail = "Logo file is required." });
+
+        await using var stream = file.OpenReadStream();
+        return await companySettingsService
+            .UploadLogoAsync(stream, file.ContentType, cancellationToken)
+            .ToBillingActionResult();
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
+    [HttpDelete("logo")]
+    public Task<IActionResult> RemoveLogo(CancellationToken cancellationToken) =>
+        companySettingsService.RemoveLogoAsync(cancellationToken).ToBillingActionResult();
+
+    [EnableRateLimiting(RateLimitPolicies.BillingRead)]
+    [HttpGet("logo")]
+    public async Task<IActionResult> GetLogo(CancellationToken cancellationToken)
+    {
+        var logo = await companySettingsService.GetLogoAsync(cancellationToken);
+        if (logo is null)
+            return NotFound();
+
+        return File(logo.Value.Bytes, logo.Value.ContentType);
+    }
 }
