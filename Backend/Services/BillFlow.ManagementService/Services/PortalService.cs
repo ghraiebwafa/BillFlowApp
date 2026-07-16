@@ -3,6 +3,7 @@ using BillFlow.Models.Entities;
 using BillFlow.Models.Shared.Enums;
 using BillFlow.Repositories.Interfaces;
 using BillFlow.ManagementService.Services.Billing;
+using BillFlow.Shared.Configuration;
 
 namespace BillFlow.ManagementService.Services;
 
@@ -63,6 +64,66 @@ public sealed class PortalService(
         {
             Content = content,
             FileName = $"{SanitizeFileName(invoice.InvoiceNumber)}.pdf",
+        });
+    }
+
+    public async Task<OperationResult<PortalCheckoutResponse>> CreateCheckoutAsync(
+        string token,
+        CancellationToken cancellationToken = default)
+    {
+        var shareToken = await shareTokenRepository.GetByTokenAsync(token, cancellationToken);
+        var validation = ValidateToken(shareToken);
+        if (validation is not null)
+            return OperationResult<PortalCheckoutResponse>.Fail(validation, StatusCodes.Status404NotFound);
+
+        var invoice = shareToken!.Invoice;
+        if (invoice.Status is not (InvoiceStatus.Sent or InvoiceStatus.Overdue or InvoiceStatus.PartiallyPaid))
+        {
+            return OperationResult<PortalCheckoutResponse>.Fail(
+                "This invoice cannot be paid online in its current status.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        var stripeKey = BillFlowEnv.Get("STRIPE_SECRET_KEY", "");
+        var stubUrl = BillFlowEnv.Get("STRIPE_CHECKOUT_STUB_URL", "");
+
+        // Stub mode: only treat as configured when an explicit checkout URL is set.
+        // STRIPE_SECRET_KEY alone does not enable checkout until real Stripe Sessions exist.
+        if (string.IsNullOrWhiteSpace(stubUrl))
+        {
+            var hint = string.IsNullOrWhiteSpace(stripeKey)
+                ? "Online payments are not configured yet. Contact the business to pay this invoice."
+                : "Online payments are not ready yet. Contact the business to pay this invoice.";
+
+            return OperationResult<PortalCheckoutResponse>.Ok(new PortalCheckoutResponse
+            {
+                Configured = false,
+                CheckoutUrl = null,
+                Message = hint,
+            });
+        }
+
+        if (!Uri.TryCreate(stubUrl, UriKind.Absolute, out var checkoutUri)
+            || (checkoutUri.Scheme != Uri.UriSchemeHttps && checkoutUri.Scheme != Uri.UriSchemeHttp))
+        {
+            return OperationResult<PortalCheckoutResponse>.Fail(
+                "Online payment checkout is misconfigured.",
+                StatusCodes.Status503ServiceUnavailable);
+        }
+
+        await auditTrail.LogAnonymousAsync(
+            invoice.OwnerId,
+            AuditAction.PortalCheckoutStarted,
+            AuditEntityType.Invoice,
+            invoice.Id,
+            $"Portal checkout started for invoice {invoice.InvoiceNumber}.",
+            cancellationToken);
+
+        return OperationResult<PortalCheckoutResponse>.Ok(new PortalCheckoutResponse
+        {
+            Configured = true,
+            CheckoutUrl = checkoutUri.AbsoluteUri,
+            Message = "Redirecting to payment checkout.",
         });
     }
 

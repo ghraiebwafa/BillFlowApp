@@ -25,6 +25,7 @@ export const billingApi = {
 
   dashboard: `${billing}/dashboard`,
   companySettings: `${billing}/company-settings`,
+  companySettingsLogo: `${billing}/company-settings/logo`,
   activity: (limit = 50) => `${billing}/activity?limit=${limit}`,
 
   reports: {
@@ -38,4 +39,5 @@ export const billingApi = {
 export const portalApi = {
   invoice: (token: string) => `/api/v1.0/portal/${encodeURIComponent(token)}`,
   invoicePdf: (token: string) => `/api/v1.0/portal/${encodeURIComponent(token)}/pdf`,
+  checkout: (token: string) => `/api/v1.0/portal/${encodeURIComponent(token)}/checkout`,
 } as const;

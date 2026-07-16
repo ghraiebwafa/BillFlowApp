@@ -19,4 +19,9 @@ public class PortalController(IPortalService portalService) : ControllerBase
     [HttpGet("{token}/pdf")]
     public Task<IActionResult> DownloadPdf(string token, CancellationToken cancellationToken) =>
         this.ToBillingPdfResult(portalService.DownloadPdfByTokenAsync(token, cancellationToken));
+
+    [EnableRateLimiting(RateLimitPolicies.AuthModerate)]
+    [HttpPost("{token}/checkout")]
+    public Task<IActionResult> Checkout(string token, CancellationToken cancellationToken) =>
+        portalService.CreateCheckoutAsync(token, cancellationToken).ToBillingActionResult();
 }

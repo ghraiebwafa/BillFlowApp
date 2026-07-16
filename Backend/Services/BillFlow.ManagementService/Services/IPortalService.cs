@@ -11,4 +11,8 @@ public interface IPortalService
     Task<OperationResult<InvoicePdfFile>> DownloadPdfByTokenAsync(
         string token,
         CancellationToken cancellationToken = default);
+
+    Task<OperationResult<PortalCheckoutResponse>> CreateCheckoutAsync(
+        string token,
+        CancellationToken cancellationToken = default);
 }

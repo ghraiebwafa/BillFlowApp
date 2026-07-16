@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Download, FileText } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { CreditCard, Download, FileText } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
@@ -8,6 +8,7 @@ import { portalApi } from "../../../domain/billing/api-paths";
 import { env } from "../../../shared/config/env";
 import { formatMoney } from "../../../shared/lib/money";
 import { InvoiceStatus, invoiceStatusLabel } from "../../../domain/billing/invoice";
+import { toast } from "../../../shared/ui/toast-store";
 
 const publicLineItemSchema = z.object({
   id: z.string().uuid(),
@@ -103,6 +104,39 @@ export function PortalPage() {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  const checkoutMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`${env.managementApiUrl}${portalApi.checkout(token!)}`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) throw new Error("checkout_failed");
+      return z
+        .object({
+          configured: z.boolean(),
+          checkoutUrl: z.string().nullable().optional(),
+          message: z.string(),
+        })
+        .parse(await res.json());
+    },
+    onSuccess: (result) => {
+      if (result.configured && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      toast(result.message, "info");
+    },
+    onError: () => {
+      toast(t("portal.checkoutError"), "error");
+    },
+  });
+
+  const canPayOnline =
+    invoice
+    && (invoice.status === InvoiceStatus.Sent
+      || invoice.status === InvoiceStatus.Overdue
+      || invoice.status === InvoiceStatus.PartiallyPaid);
 
   if (!token) {
     return (
@@ -242,6 +276,17 @@ export function PortalPage() {
                 <Download className="h-4 w-4" />
                 {t("invoices.downloadPdf")}
               </button>
+              {canPayOnline ? (
+                <button
+                  className="btn-secondary flex items-center justify-center gap-2"
+                  disabled={checkoutMutation.isPending}
+                  onClick={() => void checkoutMutation.mutate()}
+                  type="button"
+                >
+                  <CreditCard className="h-4 w-4" />
+                  {checkoutMutation.isPending ? t("app.loading") : t("portal.payOnline")}
+                </button>
+              ) : null}
             </div>
 
             {/* Footer */}

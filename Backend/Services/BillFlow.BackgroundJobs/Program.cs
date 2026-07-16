@@ -1,9 +1,8 @@
-using BillFlow.BackgroundJobs;
 using BillFlow.BackgroundJobs.Jobs;
 using BillFlow.Database.Configuration;
 using BillFlow.Database.DbContexts;
 using BillFlow.Repositories;
-using BillFlow.Shared.Configuration;
+using BillFlow.Shared.Email;
 using DotNetEnv;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,8 +24,10 @@ builder.Services.AddDbContext<BillFlowDbContext>(options =>
     options.UseNpgsql(PostgresConnection.FromEnvironment()));
 
 builder.Services.AddBillFlowRepositories();
+builder.Services.AddBillFlowEmail();
 builder.Services.AddHostedService<OverdueInvoiceSyncHostedService>();
 builder.Services.AddHostedService<RefreshTokenCleanupHostedService>();
+builder.Services.AddHostedService<PaymentReminderHostedService>();
 
 var host = builder.Build();
 host.Run();
