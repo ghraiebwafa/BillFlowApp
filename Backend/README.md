@@ -415,10 +415,10 @@ Test fixtures disable rate limiting via `DISABLE_RATE_LIMITING=true`.
 - [ ] Set `ASPNETCORE_ENVIRONMENT=Production`
 - [ ] Use `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`
 - [ ] Set `APPLY_MIGRATIONS=false`; run migrations from CI or a one-off job
-- [ ] Set `ALLOW_DEV_RESET_PASSWORD=false`
+- [ ] Set `ALLOW_DEV_RESET_PASSWORD=false` (token-based reset only in production)
 - [ ] Configure `CORS_ALLOWED_ORIGINS` with your frontend URL(s)
 - [ ] Use strong secrets from `setup-env.sh` (never commit `.env`)
-- [ ] Plan email/SMTP for password reset before public launch
+- [ ] Configure SMTP (`SMTP_*`) and `FRONTEND_BASE_URL` for password reset / verification emails
 - [ ] Set up backups for Postgres volume `billflow_pgdata`
 
 ---
@@ -466,14 +466,16 @@ Backend/
 - [x] Background overdue invoice sync
 - [x] Security hardening + integration tests
 - [x] Frontend SPA (in progress — see Frontend README)
+- [x] SMTP email (invoice send, password reset, optional verification, payment reminders)
+- [x] Logo upload in company settings (PDF branding)
+- [x] Optional email verification on registration (`REQUIRE_EMAIL_VERIFICATION`)
+- [x] Payment reminder background job
+- [x] Portal Stripe Checkout stub (`STRIPE_CHECKOUT_STUB_URL`)
 
 ### Planned
 
-- [ ] Email / SMTP (password reset, invoice send, payment reminders)
-- [ ] Logo upload in company settings
 - [ ] Pagination on list endpoints (`GET /clients`, `/invoices`, etc.)
-- [ ] Email verification on registration
-- [ ] Payment reminder background job
+- [ ] Full Stripe Checkout Session (replace stub)
 
 ---
 

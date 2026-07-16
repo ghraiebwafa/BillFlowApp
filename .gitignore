@@ -37,6 +37,9 @@ _ReSharper*/
 # NuGet
 *.nupkg
 *.snupkg
+Backend/.nuget-local/**
+!Backend/.nuget-local/.gitkeep
+
 
 # ==========================================
 # Logs
@@ -153,3 +156,4 @@ appsettings.Local.json
 # ==========================================
 Generated/*.tsbuildinfo
 *.tsbuildinfo
+

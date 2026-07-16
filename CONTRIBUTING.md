@@ -39,11 +39,16 @@ See [Backend/README.md](Backend/README.md) and [Frontend/README.md](Frontend/REA
 - Add or update integration tests for API behavior changes.
 - Add frontend validation where API contracts change.
 - Manual smoke test (Visitor):
-  1. Register → company settings
+  1. Register → company settings (logo + payment reminders)
   2. Create client + catalog item
-  3. Create invoice (pick catalog item) → send → PDF / portal link
+  3. Create invoice (pick catalog item) → send → PDF (logo) / portal link
   4. Record payment or mark paid → check dashboard / reports / activity
   5. Refund or cancel a payment; duplicate an invoice; edit/delete a draft
+  6. Portal “Pay online” (stub URL or “not configured” message)
+- Manual smoke test (Auth / SMTP):
+  1. Set `SMTP_*` + `FRONTEND_BASE_URL` in `.env` (or leave `SMTP_HOST` empty to log emails)
+  2. Forgot password → open reset link → set new password
+  3. Optional: `REQUIRE_EMAIL_VERIFICATION=true` → register → verify-email link
 - Manual smoke test (Admin):
   1. Login as SuperAdmin from `.env`
   2. `/admin/users` → manage visitors; create/edit/deactivate admins
