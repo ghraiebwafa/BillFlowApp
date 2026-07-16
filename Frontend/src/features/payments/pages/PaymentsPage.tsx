@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "../../../shared/ui/PageHeader";
@@ -10,10 +11,15 @@ import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
 import { buildPageQuery, pagedSchema, type PagedResponse } from "../../../domain/billing/paging";
 import { paymentRecordSchema } from "../../../domain/billing/schemas";
-import type { PaymentRecord } from "../../../domain/billing/payment";
-import { paymentMethodLabel, paymentStatusLabel } from "../../../domain/billing/payment";
+import {
+  PaymentStatus,
+  type PaymentRecord,
+  paymentMethodLabel,
+  paymentStatusLabel,
+} from "../../../domain/billing/payment";
 import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 import { useDebouncedValue } from "../../../shared/lib/use-debounced-value";
+import { toast } from "../../../shared/ui/toast-store";
 
 const PAGE_SIZE = 50;
 const pagedPaymentSchema = pagedSchema(paymentRecordSchema);
@@ -24,9 +30,16 @@ function formatDate(value: string): string {
   );
 }
 
+function paymentBadgeVariant(status: PaymentStatus): "paid" | "partial" | "draft" | "completed" {
+  if (status === PaymentStatus.Completed) return "completed";
+  if (status === PaymentStatus.Refunded) return "partial";
+  return "draft";
+}
+
 export function PaymentsPage() {
   const { t } = useTranslation();
   const currency = useCompanyCurrency();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search);
@@ -49,8 +62,49 @@ export function PaymentsPage() {
     placeholderData: (previous) => previous,
   });
 
+  const refundMutation = useMutation({
+    mutationFn: (paymentId: string) =>
+      managementRequest<PaymentRecord>(billingApi.paymentRefund(paymentId), {
+        method: "POST",
+        schema: paymentRecordSchema,
+      }),
+    onSuccess: (payment) => {
+      void queryClient.invalidateQueries({ queryKey: ["payments"] });
+      void queryClient.invalidateQueries({ queryKey: ["invoice", payment.invoiceId] });
+      void queryClient.invalidateQueries({ queryKey: ["invoice-payments", payment.invoiceId] });
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast(t("toast.paymentRefunded"), "success");
+    },
+    onError: (err) => {
+      toast(err instanceof ApiError ? err.message : t("common.actionFailed"), "error");
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (paymentId: string) =>
+      managementRequest<PaymentRecord>(billingApi.paymentCancel(paymentId), {
+        method: "POST",
+        schema: paymentRecordSchema,
+      }),
+    onSuccess: (payment) => {
+      void queryClient.invalidateQueries({ queryKey: ["payments"] });
+      void queryClient.invalidateQueries({ queryKey: ["invoice", payment.invoiceId] });
+      void queryClient.invalidateQueries({ queryKey: ["invoice-payments", payment.invoiceId] });
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast(t("toast.paymentCancelled"), "success");
+    },
+    onError: (err) => {
+      toast(err instanceof ApiError ? err.message : t("common.actionFailed"), "error");
+    },
+  });
+
   const payments = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
+  const actionPending = refundMutation.isPending || cancelMutation.isPending;
 
   return (
     <section className="app-screen">
@@ -79,15 +133,50 @@ export function PaymentsPage() {
             <li key={row.id} className="card list-row-static">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold">{row.invoiceNumber}</p>
+                  <p className="font-semibold">
+                    <Link className="text-accent no-underline" to={`/invoices/${row.invoiceId}`}>
+                      {row.invoiceNumber}
+                    </Link>
+                  </p>
                   <p className="text-sm text-secondary">{paymentMethodLabel(row.method, t)}</p>
                   <p className="mt-1 text-xs text-secondary">{formatDate(row.paymentDate)}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-accent">{formatMoney(row.amount, currency)}</p>
-                  <StatusBadge label={paymentStatusLabel(row.status, t)} variant="completed" />
+                  <StatusBadge
+                    label={paymentStatusLabel(row.status, t)}
+                    variant={paymentBadgeVariant(row.status)}
+                  />
                 </div>
               </div>
+              {row.status === PaymentStatus.Completed ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    className="btn-ghost text-sm"
+                    disabled={actionPending}
+                    onClick={() => {
+                      if (window.confirm(t("payments.refundConfirm"))) {
+                        refundMutation.mutate(row.id);
+                      }
+                    }}
+                    type="button"
+                  >
+                    {t("payments.refund")}
+                  </button>
+                  <button
+                    className="btn-ghost text-sm text-red-500"
+                    disabled={actionPending}
+                    onClick={() => {
+                      if (window.confirm(t("payments.cancelConfirm"))) {
+                        cancelMutation.mutate(row.id);
+                      }
+                    }}
+                    type="button"
+                  >
+                    {t("payments.cancelPayment")}
+                  </button>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

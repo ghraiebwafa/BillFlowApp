@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { PaginationBar } from "../../../shared/ui/PaginationBar";
 import { FormField } from "../../../shared/ui/FormField";
@@ -16,6 +17,7 @@ import { toast } from "../../../shared/ui/toast-store";
 
 const PAGE_SIZE = 50;
 const pagedClientSchema = pagedSchema(clientResponseSchema);
+const messageSchema = z.object({ message: z.string() });
 
 type ClientForm = {
   companyName: string;
@@ -102,6 +104,23 @@ export function ClientsPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      managementRequest<{ message: string }>(billingApi.client(id), {
+        method: "DELETE",
+        schema: messageSchema,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["clients"] });
+      setEditorOpen(false);
+      setEditing(null);
+      toast(t("toast.clientDeleted"), "success");
+    },
+    onError: (err) => {
+      toast(err instanceof ApiError ? err.message : t("clients.saveError"), "error");
+    },
+  });
+
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
@@ -125,6 +144,7 @@ export function ClientsPage() {
 
   const clients = data?.items ?? [];
   const totalCount = data?.totalCount ?? 0;
+  const busy = saveMutation.isPending || deleteMutation.isPending;
 
   return (
     <section className="app-screen space-y-4">
@@ -240,12 +260,26 @@ export function ClientsPage() {
             <button
               className="btn-primary flex-1"
               type="button"
-              disabled={saveMutation.isPending}
+              disabled={busy}
               onClick={() => saveMutation.mutate()}
             >
               {saveMutation.isPending ? t("clients.saving") : t("clients.save")}
             </button>
           </div>
+          {editing ? (
+            <button
+              className="btn-ghost w-full text-sm text-red-500"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (window.confirm(t("clients.deleteConfirm"))) {
+                  deleteMutation.mutate(editing.id);
+                }
+              }}
+            >
+              {t("clients.delete")}
+            </button>
+          ) : null}
         </div>
       ) : null}
 

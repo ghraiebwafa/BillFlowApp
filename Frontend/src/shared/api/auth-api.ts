@@ -57,4 +57,20 @@ export const authApi = {
     });
     return messageResponseSchema.parse(data);
   },
+
+  async changePassword(
+    accessToken: string,
+    payload: {
+      currentPassword: string;
+      newPassword: string;
+      confirmNewPassword: string;
+    },
+  ): Promise<MessageResponse> {
+    const data = await requestJson<unknown>(`${base}/change-password`, {
+      method: "POST",
+      token: accessToken,
+      body: payload,
+    });
+    return messageResponseSchema.parse(data);
+  },
 };
