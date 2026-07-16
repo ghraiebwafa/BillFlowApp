@@ -8,6 +8,7 @@ import {
   Download,
   Link2,
   Mail,
+  Pencil,
   Send,
   Trash2,
   Unlink,
@@ -575,15 +576,24 @@ export function InvoiceDetailPage() {
 
           <div className="detail-actions flex-wrap">
             {invoice.status === InvoiceStatus.Draft ? (
-              <button
-                className="btn-primary flex flex-1 items-center justify-center gap-2"
-                disabled={anyActionPending}
-                onClick={() => void sendMutation.mutate()}
-                type="button"
-              >
-                <Send className="h-4 w-4" />
-                {sendMutation.isPending ? t("app.loading") : t("invoices.send")}
-              </button>
+              <>
+                <button
+                  className="btn-primary flex flex-1 items-center justify-center gap-2"
+                  disabled={anyActionPending}
+                  onClick={() => void sendMutation.mutate()}
+                  type="button"
+                >
+                  <Send className="h-4 w-4" />
+                  {sendMutation.isPending ? t("app.loading") : t("invoices.send")}
+                </button>
+                <Link
+                  className="btn-secondary flex flex-1 items-center justify-center gap-2 no-underline"
+                  to={`/invoices/${id}/edit`}
+                >
+                  <Pencil className="h-4 w-4" />
+                  {t("invoices.editDraft")}
+                </Link>
+              </>
             ) : null}
 
             {canReceivePayment(invoice.status) ? (

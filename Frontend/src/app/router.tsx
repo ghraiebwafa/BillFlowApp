@@ -9,8 +9,9 @@ import { CompanySettingsPage } from "../features/company-settings/pages/CompanyS
 import { AdminUsersPage } from "../features/admin/pages/AdminUsersPage";
 import { ProfilePage } from "../features/profile/pages/ProfilePage";
 import { InvoicesPage } from "../features/invoices/pages/InvoicesPage";
-import { InvoiceDetailPage } from "../features/invoices/pages/InvoiceDetailPage";
 import { CreateInvoicePage } from "../features/invoices/pages/CreateInvoicePage";
+import { EditInvoicePage } from "../features/invoices/pages/EditInvoicePage";
+import { InvoiceDetailPage } from "../features/invoices/pages/InvoiceDetailPage";
 import { PaymentsPage } from "../features/payments/pages/PaymentsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { ActivityPage } from "../features/activity/pages/ActivityPage";
@@ -45,6 +46,7 @@ export function AppRouter() {
             <Route path="/clients" element={<ClientsPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/invoices/new" element={<CreateInvoicePage />} />
+            <Route path="/invoices/:id/edit" element={<EditInvoicePage />} />
             <Route path="/invoices/:id" element={<InvoiceDetailPage />} />
             <Route path="/payments" element={<PaymentsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
