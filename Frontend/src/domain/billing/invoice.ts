@@ -51,3 +51,27 @@ export type InvoiceDetail = {
 };
 
 export { invoiceStatusClass, invoiceStatusLabel } from "./invoice-labels";
+
+export function canSendInvoice(status: InvoiceStatus): boolean {
+  return status === InvoiceStatus.Draft;
+}
+
+export function canDeleteInvoice(status: InvoiceStatus): boolean {
+  return status === InvoiceStatus.Draft;
+}
+
+export function canCancelInvoice(status: InvoiceStatus): boolean {
+  return status === InvoiceStatus.Draft || status === InvoiceStatus.Sent;
+}
+
+export function canMarkInvoicePaid(status: InvoiceStatus): boolean {
+  return (
+    status === InvoiceStatus.Sent
+    || status === InvoiceStatus.Overdue
+    || status === InvoiceStatus.PartiallyPaid
+  );
+}
+
+export function canReceivePayment(status: InvoiceStatus): boolean {
+  return canMarkInvoicePaid(status);
+}

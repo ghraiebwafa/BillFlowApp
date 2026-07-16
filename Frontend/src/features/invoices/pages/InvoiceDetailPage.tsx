@@ -1,20 +1,43 @@
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Link2, Mail, Send, Unlink } from "lucide-react";
+import {
+  Banknote,
+  CheckCircle2,
+  Copy,
+  Download,
+  Link2,
+  Mail,
+  Send,
+  Trash2,
+  Unlink,
+  XCircle,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
 import { PageHeader } from "../../../shared/ui/PageHeader";
 import { StatusBadge } from "../../../shared/ui/StatusBadge";
+import { FormField } from "../../../shared/ui/FormField";
+import { FormTextArea } from "../../../shared/ui/FormTextArea";
 import { managementRequest } from "../../../shared/api/management-client";
 import { downloadWithAuth } from "../../../shared/api/download-with-auth";
 import { ApiError } from "../../../shared/api/api-error";
 import {
   InvoiceStatus,
+  canCancelInvoice,
+  canDeleteInvoice,
+  canMarkInvoicePaid,
+  canReceivePayment,
   type InvoiceDetail,
   invoiceStatusLabel,
 } from "../../../domain/billing/invoice";
-import type { PaymentRecord } from "../../../domain/billing/payment";
-import { paymentMethodLabel, PaymentStatus } from "../../../domain/billing/payment";
+import {
+  PaymentMethod,
+  PaymentStatus,
+  type PaymentRecord,
+  paymentMethodLabel,
+  paymentStatusLabel,
+} from "../../../domain/billing/payment";
 import { invoiceDetailSchema, paymentRecordSchema } from "../../../domain/billing/schemas";
 import { billingApi } from "../../../domain/billing/api-paths";
 import { toast } from "../../../shared/ui/toast-store";
@@ -27,10 +50,24 @@ const shareLinkSchema = z.object({
   alreadyActive: z.boolean().optional(),
 });
 
+const messageSchema = z.object({ message: z.string() });
+
+const PAYMENT_METHODS = [
+  PaymentMethod.Cash,
+  PaymentMethod.BankTransfer,
+  PaymentMethod.CreditCard,
+  PaymentMethod.PayPal,
+  PaymentMethod.Stripe,
+] as const;
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(
     new Date(value),
   );
+}
+
+function todayInputValue(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function statusVariant(status: InvoiceStatus): "paid" | "partial" | "unpaid" | "draft" {
@@ -38,6 +75,12 @@ function statusVariant(status: InvoiceStatus): "paid" | "partial" | "unpaid" | "
   if (status === InvoiceStatus.PartiallyPaid) return "partial";
   if (status === InvoiceStatus.Draft || status === InvoiceStatus.Cancelled) return "draft";
   return "unpaid";
+}
+
+function paymentBadgeVariant(status: PaymentStatus): "paid" | "partial" | "draft" | "completed" {
+  if (status === PaymentStatus.Completed) return "completed";
+  if (status === PaymentStatus.Refunded) return "partial";
+  return "draft";
 }
 
 function canEmailInvoice(status: InvoiceStatus): boolean {
@@ -49,11 +92,29 @@ function canEmailInvoice(status: InvoiceStatus): boolean {
   );
 }
 
+function invalidateBillingCaches(queryClient: ReturnType<typeof useQueryClient>, invoiceId: string) {
+  void queryClient.invalidateQueries({ queryKey: ["invoice", invoiceId] });
+  void queryClient.invalidateQueries({ queryKey: ["invoice-payments", invoiceId] });
+  void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+  void queryClient.invalidateQueries({ queryKey: ["payments"] });
+  void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+  void queryClient.invalidateQueries({ queryKey: ["activity"] });
+}
+
 export function InvoiceDetailPage() {
   const { t } = useTranslation();
   const currency = useCompanyCurrency();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+
+  const [paymentFormOpen, setPaymentFormOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.BankTransfer);
+  const [paymentDate, setPaymentDate] = useState(todayInputValue);
+  const [reference, setReference] = useState("");
+  const [notes, setNotes] = useState("");
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   const { data: invoice, isLoading, error } = useQuery({
     queryKey: ["invoice", id],
@@ -73,6 +134,26 @@ export function InvoiceDetailPage() {
       }),
   });
 
+  const completedPaid = useMemo(
+    () =>
+      (payments ?? [])
+        .filter((p) => p.status === PaymentStatus.Completed)
+        .reduce((sum, p) => sum + p.amount, 0),
+    [payments],
+  );
+
+  const amountDue = invoice ? Math.max(0, Math.round((invoice.total - completedPaid) * 100) / 100) : 0;
+
+  useEffect(() => {
+    if (paymentFormOpen && amountDue > 0) {
+      setAmount(String(amountDue));
+    }
+  }, [paymentFormOpen, amountDue]);
+
+  const actionError = (err: unknown) => {
+    toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
+  };
+
   const sendMutation = useMutation({
     mutationFn: () =>
       managementRequest<InvoiceDetail>(billingApi.invoiceSend(id!), {
@@ -81,21 +162,17 @@ export function InvoiceDetailPage() {
       }),
     onSuccess: (updated) => {
       queryClient.setQueryData(["invoice", id], updated);
-      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      void queryClient.invalidateQueries({ queryKey: ["activity"] });
-      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      invalidateBillingCaches(queryClient, id!);
       toast(t("toast.invoiceSent"), "success");
     },
-    onError: (err) => {
-      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
-    },
+    onError: actionError,
   });
 
   const emailMutation = useMutation({
     mutationFn: () =>
       managementRequest<{ message: string }>(billingApi.invoiceEmail(id!), {
         method: "POST",
-        schema: z.object({ message: z.string() }),
+        schema: messageSchema,
       }),
     onSuccess: (response) => {
       void queryClient.invalidateQueries({ queryKey: ["activity"] });
@@ -105,9 +182,7 @@ export function InvoiceDetailPage() {
         skipped ? "info" : "success",
       );
     },
-    onError: (err) => {
-      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
-    },
+    onError: actionError,
   });
 
   const shareMutation = useMutation({
@@ -131,27 +206,137 @@ export function InvoiceDetailPage() {
         toast(t("invoices.shareLinkCopyFailed"), "error");
       }
     },
-    onError: (err) => {
-      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
-    },
+    onError: actionError,
   });
 
   const revokeMutation = useMutation({
     mutationFn: () =>
       managementRequest<{ message: string }>(billingApi.invoiceShareLink(id!), {
         method: "DELETE",
-        schema: z.object({ message: z.string() }),
+        schema: messageSchema,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["activity"] });
       toast(t("invoices.shareLinkRevoked"), "success");
     },
+    onError: actionError,
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<InvoiceDetail>(billingApi.invoiceMarkPaid(id!), {
+        method: "POST",
+        schema: invoiceDetailSchema,
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["invoice", id], updated);
+      invalidateBillingCaches(queryClient, id!);
+      setPaymentFormOpen(false);
+      toast(t("toast.invoiceMarkedPaid"), "success");
+    },
+    onError: actionError,
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<InvoiceDetail>(billingApi.invoiceCancel(id!), {
+        method: "POST",
+        schema: invoiceDetailSchema,
+      }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["invoice", id], updated);
+      invalidateBillingCaches(queryClient, id!);
+      toast(t("toast.invoiceCancelled"), "success");
+    },
+    onError: actionError,
+  });
+
+  const duplicateMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<InvoiceDetail>(billingApi.invoiceDuplicate(id!), {
+        method: "POST",
+        schema: invoiceDetailSchema,
+      }),
+    onSuccess: (created) => {
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast(t("toast.invoiceDuplicated"), "success");
+      navigate(`/invoices/${created.id}`, { replace: true });
+    },
+    onError: actionError,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      managementRequest<{ message: string }>(billingApi.invoice(id!), {
+        method: "DELETE",
+        schema: messageSchema,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+      void queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast(t("toast.invoiceDeleted"), "success");
+      navigate("/invoices", { replace: true });
+    },
+    onError: actionError,
+  });
+
+  const recordPaymentMutation = useMutation({
+    mutationFn: (body: {
+      invoiceId: string;
+      amount: number;
+      method: PaymentMethod;
+      paymentDate?: string;
+      reference?: string;
+      notes?: string;
+    }) =>
+      managementRequest<PaymentRecord>(billingApi.payments, {
+        method: "POST",
+        body,
+        schema: paymentRecordSchema,
+      }),
+    onSuccess: () => {
+      invalidateBillingCaches(queryClient, id!);
+      setPaymentFormOpen(false);
+      setReference("");
+      setNotes("");
+      setPaymentError(null);
+      toast(t("toast.paymentRecorded"), "success");
+    },
     onError: (err) => {
-      toast(err instanceof ApiError ? err.message : t("invoices.actionError"), "error");
+      const message = err instanceof ApiError ? err.message : t("invoices.actionError");
+      setPaymentError(message);
+      toast(message, "error");
     },
   });
 
-  const completedPayments = (payments ?? []).filter((p) => p.status === PaymentStatus.Completed);
+  const refundMutation = useMutation({
+    mutationFn: (paymentId: string) =>
+      managementRequest<PaymentRecord>(billingApi.paymentRefund(paymentId), {
+        method: "POST",
+        schema: paymentRecordSchema,
+      }),
+    onSuccess: () => {
+      invalidateBillingCaches(queryClient, id!);
+      toast(t("toast.paymentRefunded"), "success");
+    },
+    onError: actionError,
+  });
+
+  const cancelPaymentMutation = useMutation({
+    mutationFn: (paymentId: string) =>
+      managementRequest<PaymentRecord>(billingApi.paymentCancel(paymentId), {
+        method: "POST",
+        schema: paymentRecordSchema,
+      }),
+    onSuccess: () => {
+      invalidateBillingCaches(queryClient, id!);
+      toast(t("toast.paymentCancelled"), "success");
+    },
+    onError: actionError,
+  });
 
   const downloadPdf = async () => {
     if (!id) return;
@@ -164,6 +349,39 @@ export function InvoiceDetailPage() {
       toast(t("invoices.actionError"), "error");
     }
   };
+
+  const submitPayment = () => {
+    if (!id || !invoice) return;
+    const parsed = Number(amount);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setPaymentError(t("payments.amountRequired"));
+      return;
+    }
+    if (parsed > amountDue + 0.001) {
+      setPaymentError(t("payments.amountExceedsDue"));
+      return;
+    }
+
+    recordPaymentMutation.mutate({
+      invoiceId: id,
+      amount: parsed,
+      method,
+      paymentDate: paymentDate || undefined,
+      reference: reference.trim() || undefined,
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  const anyActionPending =
+    sendMutation.isPending
+    || emailMutation.isPending
+    || shareMutation.isPending
+    || revokeMutation.isPending
+    || markPaidMutation.isPending
+    || cancelMutation.isPending
+    || duplicateMutation.isPending
+    || deleteMutation.isPending
+    || recordPaymentMutation.isPending;
 
   if (!id) return null;
 
@@ -215,6 +433,12 @@ export function InvoiceDetailPage() {
               <span>{t("invoices.total")}</span>
               <span>{formatMoney(invoice.total, currency)}</span>
             </div>
+            {canReceivePayment(invoice.status) || invoice.status === InvoiceStatus.Paid ? (
+              <div className="invoice-total-row">
+                <span>{t("invoices.amountDue")}</span>
+                <span className="font-semibold text-accent">{formatMoney(amountDue, currency)}</span>
+              </div>
+            ) : null}
           </div>
 
           <div className="detail-section">
@@ -234,30 +458,126 @@ export function InvoiceDetailPage() {
             </ul>
           </div>
 
-          {completedPayments.length > 0 ? (
+          {(payments?.length ?? 0) > 0 ? (
             <div className="detail-section">
               <h3 className="detail-section-title">{t("invoices.paymentHistory")}</h3>
               <ul className="list-stack">
-                {completedPayments.map((payment) => (
+                {payments!.map((payment) => (
                   <li key={payment.id} className="card list-row-static">
                     <div className="flex justify-between gap-2">
                       <span className="font-medium">{formatMoney(payment.amount, currency)}</span>
-                      <StatusBadge label={t("payments.completed")} variant="completed" />
+                      <StatusBadge
+                        label={paymentStatusLabel(payment.status, t)}
+                        variant={paymentBadgeVariant(payment.status)}
+                      />
                     </div>
                     <p className="text-sm text-secondary">
                       {paymentMethodLabel(payment.method, t)} · {formatDate(payment.paymentDate)}
                     </p>
+                    {payment.status === PaymentStatus.Completed ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                          className="btn-ghost text-sm"
+                          disabled={refundMutation.isPending || cancelPaymentMutation.isPending}
+                          onClick={() => {
+                            if (window.confirm(t("payments.refundConfirm"))) {
+                              refundMutation.mutate(payment.id);
+                            }
+                          }}
+                          type="button"
+                        >
+                          {t("payments.refund")}
+                        </button>
+                        <button
+                          className="btn-ghost text-sm text-red-500"
+                          disabled={refundMutation.isPending || cancelPaymentMutation.isPending}
+                          onClick={() => {
+                            if (window.confirm(t("payments.cancelConfirm"))) {
+                              cancelPaymentMutation.mutate(payment.id);
+                            }
+                          }}
+                          type="button"
+                        >
+                          {t("payments.cancelPayment")}
+                        </button>
+                      </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             </div>
           ) : null}
 
-          <div className="detail-actions">
+          {paymentFormOpen && canReceivePayment(invoice.status) ? (
+            <div className="card space-y-3">
+              <h3 className="detail-section-title">{t("payments.record")}</h3>
+              <FormField
+                label={t("payments.amount")}
+                type="number"
+                min={0.01}
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <label className="block space-y-1.5 text-sm">
+                <span className="font-medium text-primary">{t("payments.method")}</span>
+                <select
+                  className="field-select"
+                  value={method}
+                  onChange={(e) => setMethod(Number(e.target.value) as PaymentMethod)}
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m} value={m}>
+                      {paymentMethodLabel(m, t)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <FormField
+                label={t("payments.date")}
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+              />
+              <FormField
+                label={t("payments.reference")}
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+              />
+              <FormTextArea
+                label={t("payments.notes")}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+              {paymentError ? <p className="text-sm text-red-500">{paymentError}</p> : null}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="btn-primary"
+                  disabled={recordPaymentMutation.isPending}
+                  onClick={submitPayment}
+                  type="button"
+                >
+                  {recordPaymentMutation.isPending ? t("payments.saving") : t("payments.save")}
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setPaymentFormOpen(false);
+                    setPaymentError(null);
+                  }}
+                  type="button"
+                >
+                  {t("payments.cancel")}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="detail-actions flex-wrap">
             {invoice.status === InvoiceStatus.Draft ? (
               <button
                 className="btn-primary flex flex-1 items-center justify-center gap-2"
-                disabled={sendMutation.isPending}
+                disabled={anyActionPending}
                 onClick={() => void sendMutation.mutate()}
                 type="button"
               >
@@ -266,10 +586,38 @@ export function InvoiceDetailPage() {
               </button>
             ) : null}
 
-            {canEmailInvoice(invoice.status) ? (
+            {canReceivePayment(invoice.status) ? (
               <button
                 className="btn-primary flex flex-1 items-center justify-center gap-2"
-                disabled={emailMutation.isPending}
+                disabled={anyActionPending}
+                onClick={() => setPaymentFormOpen((open) => !open)}
+                type="button"
+              >
+                <Banknote className="h-4 w-4" />
+                {paymentFormOpen ? t("invoices.hidePaymentForm") : t("invoices.recordPayment")}
+              </button>
+            ) : null}
+
+            {canMarkInvoicePaid(invoice.status) ? (
+              <button
+                className="btn-secondary flex flex-1 items-center justify-center gap-2"
+                disabled={anyActionPending}
+                onClick={() => {
+                  if (window.confirm(t("invoices.markPaidConfirm"))) {
+                    markPaidMutation.mutate();
+                  }
+                }}
+                type="button"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {markPaidMutation.isPending ? t("app.loading") : t("invoices.markPaid")}
+              </button>
+            ) : null}
+
+            {canEmailInvoice(invoice.status) ? (
+              <button
+                className="btn-secondary flex flex-1 items-center justify-center gap-2"
+                disabled={anyActionPending}
                 onClick={() => void emailMutation.mutate()}
                 type="button"
               >
@@ -289,11 +637,21 @@ export function InvoiceDetailPage() {
               </button>
             ) : null}
 
+            <button
+              className="btn-secondary flex flex-1 items-center justify-center gap-2"
+              disabled={anyActionPending}
+              onClick={() => void duplicateMutation.mutate()}
+              type="button"
+            >
+              <Copy className="h-4 w-4" />
+              {duplicateMutation.isPending ? t("app.loading") : t("invoices.duplicate")}
+            </button>
+
             {invoice.status !== InvoiceStatus.Draft && invoice.status !== InvoiceStatus.Cancelled ? (
               <>
                 <button
                   className="btn-secondary flex flex-1 items-center justify-center gap-2"
-                  disabled={shareMutation.isPending}
+                  disabled={anyActionPending}
                   onClick={() => void shareMutation.mutate()}
                   type="button"
                 >
@@ -302,7 +660,7 @@ export function InvoiceDetailPage() {
                 </button>
                 <button
                   className="btn-ghost flex flex-1 items-center justify-center gap-2 text-sm"
-                  disabled={revokeMutation.isPending}
+                  disabled={anyActionPending}
                   onClick={() => void revokeMutation.mutate()}
                   type="button"
                 >
@@ -310,6 +668,38 @@ export function InvoiceDetailPage() {
                   {revokeMutation.isPending ? t("app.loading") : t("invoices.revokeLink")}
                 </button>
               </>
+            ) : null}
+
+            {canCancelInvoice(invoice.status) ? (
+              <button
+                className="btn-ghost flex flex-1 items-center justify-center gap-2 text-sm text-red-500"
+                disabled={anyActionPending}
+                onClick={() => {
+                  if (window.confirm(t("invoices.cancelConfirm"))) {
+                    cancelMutation.mutate();
+                  }
+                }}
+                type="button"
+              >
+                <XCircle className="h-4 w-4" />
+                {cancelMutation.isPending ? t("app.loading") : t("invoices.cancel")}
+              </button>
+            ) : null}
+
+            {canDeleteInvoice(invoice.status) ? (
+              <button
+                className="btn-ghost flex flex-1 items-center justify-center gap-2 text-sm text-red-500"
+                disabled={anyActionPending}
+                onClick={() => {
+                  if (window.confirm(t("invoices.deleteConfirm"))) {
+                    deleteMutation.mutate();
+                  }
+                }}
+                type="button"
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleteMutation.isPending ? t("app.loading") : t("invoices.deleteDraft")}
+              </button>
             ) : null}
           </div>
 

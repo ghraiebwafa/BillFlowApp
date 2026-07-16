@@ -9,9 +9,14 @@ import { managementRequest } from "../../../shared/api/management-client";
 import { ApiError } from "../../../shared/api/api-error";
 import { billingApi } from "../../../domain/billing/api-paths";
 import type { ClientResponse } from "../../../domain/billing/client";
+import type { ItemResponse } from "../../../domain/billing/item";
 import type { InvoiceDetail } from "../../../domain/billing/invoice";
 import { buildPageQuery, pagedSchema, type PagedResponse } from "../../../domain/billing/paging";
-import { clientResponseSchema, invoiceDetailSchema } from "../../../domain/billing/schemas";
+import {
+  clientResponseSchema,
+  invoiceDetailSchema,
+  itemResponseSchema,
+} from "../../../domain/billing/schemas";
 import { toast } from "../../../shared/ui/toast-store";
 import { formatMoney, useCompanyCurrency } from "../../../shared/lib/money";
 import { useDebouncedValue } from "../../../shared/lib/use-debounced-value";
@@ -24,6 +29,7 @@ type CreateForm = {
   clientId: string;
   taxRate: number;
   notes: string;
+  catalogItemId: string;
   itemDescription: string;
   quantity: number;
   unitPrice: number;
@@ -33,6 +39,7 @@ type StepKey = "billTo" | "items" | "summary";
 
 const PICKER_PAGE_SIZE = 50;
 const pagedClientSchema = pagedSchema(clientResponseSchema);
+const pagedItemSchema = pagedSchema(itemResponseSchema);
 const stepOrder: StepKey[] = ["billTo", "items", "summary"];
 
 export function CreateInvoicePage() {
@@ -43,7 +50,9 @@ export function CreateInvoicePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [step, setStep] = useState<StepKey>("billTo");
   const [clientSearch, setClientSearch] = useState("");
+  const [itemSearch, setItemSearch] = useState("");
   const debouncedClientSearch = useDebouncedValue(clientSearch);
+  const debouncedItemSearch = useDebouncedValue(itemSearch);
 
   const {
     data: clientsPage,
@@ -62,6 +71,19 @@ export function CreateInvoicePage() {
       ),
   });
 
+  const { data: itemsPage } = useQuery({
+    queryKey: ["items", { mode: "picker", search: debouncedItemSearch, page: 1, pageSize: PICKER_PAGE_SIZE }],
+    queryFn: () =>
+      managementRequest<PagedResponse<ItemResponse>>(
+        `${billingApi.items}${buildPageQuery({
+          search: debouncedItemSearch,
+          page: 1,
+          pageSize: PICKER_PAGE_SIZE,
+        })}`,
+        { schema: pagedItemSchema },
+      ),
+  });
+
   const { data: companySettings } = useQuery({
     queryKey: companySettingsQueryKey,
     queryFn: fetchCompanySettings,
@@ -70,12 +92,14 @@ export function CreateInvoicePage() {
 
   const clients = (clientsPage?.items ?? []).filter((client) => client.isActive);
   const clientsTruncated = (clientsPage?.totalCount ?? 0) > PICKER_PAGE_SIZE;
+  const catalogItems = (itemsPage?.items ?? []).filter((item) => item.isActive && !item.isArchived);
 
   const { register, handleSubmit, watch, getValues, setValue } = useForm<CreateForm>({
     defaultValues: {
       clientId: "",
       taxRate: 0,
       notes: "",
+      catalogItemId: "",
       itemDescription: "",
       quantity: 1,
       unitPrice: 0,
@@ -96,6 +120,15 @@ export function CreateInvoicePage() {
       setValue("clientId", "");
     }
   }, [clients, selectedClientId, setValue]);
+
+  const applyCatalogItem = (itemId: string) => {
+    setValue("catalogItemId", itemId);
+    if (!itemId) return;
+    const item = catalogItems.find((entry) => entry.id === itemId);
+    if (!item) return;
+    setValue("itemDescription", item.name);
+    setValue("unitPrice", item.unitPrice);
+  };
 
   const createMutation = useMutation({
     mutationFn: (body: unknown) =>
@@ -170,6 +203,7 @@ export function CreateInvoicePage() {
         notes: values.notes || null,
         lineItems: [
           {
+            itemId: values.catalogItemId || null,
             description: values.itemDescription.trim(),
             quantity: values.quantity,
             unitPrice: values.unitPrice,
@@ -240,15 +274,52 @@ export function CreateInvoicePage() {
             {clientsTruncated ? (
               <p className="text-xs text-secondary">{t("invoices.clientSearchHint")}</p>
             ) : null}
-            <FormField label={t("invoices.taxRate")} type="number" step="0.01" {...register("taxRate", { valueAsNumber: true })} />
+            <FormField
+              label={t("invoices.taxRate")}
+              type="number"
+              step="0.01"
+              {...register("taxRate", { valueAsNumber: true })}
+            />
           </>
         ) : null}
 
         {step === "items" ? (
           <>
+            <FormField
+              label={t("invoices.searchCatalog")}
+              value={itemSearch}
+              onChange={(e) => setItemSearch(e.target.value)}
+              placeholder={t("items.searchPlaceholder")}
+            />
+            <label className="block space-y-1.5 text-sm">
+              <span className="font-medium">{t("invoices.pickCatalogItem")}</span>
+              <select
+                className="field-select"
+                value={watch("catalogItemId")}
+                onChange={(e) => applyCatalogItem(e.target.value)}
+              >
+                <option value="">{t("invoices.manualLineItem")}</option>
+                {catalogItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} — {formatMoney(item.unitPrice, item.currency || currency)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <FormField label={t("invoices.itemDescription")} {...register("itemDescription")} />
-            <FormField label={t("invoices.quantity")} type="number" min={1} {...register("quantity", { valueAsNumber: true })} />
-            <FormField label={t("invoices.unitPrice")} type="number" step="0.01" min={0} {...register("unitPrice", { valueAsNumber: true })} />
+            <FormField
+              label={t("invoices.quantity")}
+              type="number"
+              min={1}
+              {...register("quantity", { valueAsNumber: true })}
+            />
+            <FormField
+              label={t("invoices.unitPrice")}
+              type="number"
+              step="0.01"
+              min={0}
+              {...register("unitPrice", { valueAsNumber: true })}
+            />
           </>
         ) : null}
 
@@ -290,7 +361,11 @@ export function CreateInvoicePage() {
               {t("common.next")}
             </button>
           ) : (
-            <button className="btn-primary btn-primary--lg flex-1" disabled={createMutation.isPending} type="submit">
+            <button
+              className="btn-primary btn-primary--lg flex-1"
+              disabled={createMutation.isPending}
+              type="submit"
+            >
               {createMutation.isPending ? t("invoices.creating") : t("invoices.createSubmit")}
             </button>
           )}
