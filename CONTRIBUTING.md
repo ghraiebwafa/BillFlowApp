@@ -38,7 +38,17 @@ See [Backend/README.md](Backend/README.md) and [Frontend/README.md](Frontend/REA
 
 - Add or update integration tests for API behavior changes.
 - Add frontend validation where API contracts change.
-- Manual smoke test: auth flow, invoice create, payment record, report download.
+- Manual smoke test (Visitor):
+  1. Register → company settings
+  2. Create client + catalog item
+  3. Create invoice (pick catalog item) → send → PDF / portal link
+  4. Record payment or mark paid → check dashboard / reports / activity
+  5. Refund or cancel a payment; duplicate an invoice; edit/delete a draft
+- Manual smoke test (Admin):
+  1. Login as SuperAdmin from `.env`
+  2. `/admin/users` → manage visitors; create/edit/deactivate admins
+  3. Login as Admin → visitors tab only (no admin CRUD)
+- Automated: `cd Backend && dotnet test` and `cd Frontend && npm run typecheck && npm run build`
 
 ## Reporting bugs
 
