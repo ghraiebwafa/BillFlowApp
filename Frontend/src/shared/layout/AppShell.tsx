@@ -33,8 +33,13 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <div className="min-h-screen bg-surface pb-20 text-primary md:pb-0">
-      <aside className="app-sidebar fixed inset-y-0 left-0 hidden w-64 border-r border-muted bg-panel p-4 md:flex md:flex-col">
-        <BillFlowLogo size="header" className="mb-6" />
+      <aside className="app-sidebar fixed inset-y-0 left-0 hidden w-64 border-r border-muted bg-panel p-5 md:flex md:flex-col">
+        <div className="mb-7">
+          <BillFlowLogo size="header" />
+          <p className="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-secondary">
+            {t("app.kicker")}
+          </p>
+        </div>
         <nav className="flex flex-col gap-1 text-sm">
           {user && isVisitorRole(user.role)
             ? visitorLinks.map(({ to, labelKey, icon: Icon }) => (

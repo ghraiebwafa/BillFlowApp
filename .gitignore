@@ -34,11 +34,8 @@ _ReSharper*/
 # Rider
 .idea/
 
-# NuGet
-*.nupkg
-*.snupkg
-Backend/.nuget-local/**
-!Backend/.nuget-local/.gitkeep
+# Generated UI screenshots
+Frontend/design-screens/
 
 
 # ==========================================

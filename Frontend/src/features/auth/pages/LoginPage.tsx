@@ -10,7 +10,6 @@ import { AuthLayout } from "../../../shared/layout/AuthLayout";
 import { FormField } from "../../../shared/ui/FormField";
 import { homePathForRole } from "../../../shared/auth/role-utils";
 import { ApiError } from "../../../shared/api/api-error";
-import { SocialLoginRow } from "../../../shared/ui/SocialLoginRow";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -83,8 +82,6 @@ export function LoginPage() {
           {isSubmitting ? t("auth.signingIn") : t("auth.login")}
         </button>
       </form>
-
-      <SocialLoginRow />
 
       <p className="mt-5 text-center text-sm text-secondary">
         {t("auth.noAccount")}{" "}
